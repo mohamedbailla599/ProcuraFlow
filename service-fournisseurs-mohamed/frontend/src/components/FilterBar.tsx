@@ -87,8 +87,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left: Search Bar & Status Filter */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
-          {/* Search Input */}
-          <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
+          {/* Search Input: Expansive and comfortable on desktop */}
+          <div className="relative flex-1 sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               ref={searchInputRef}
@@ -152,7 +152,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           {/* Count pill */}
-          <span className="hidden xl:inline-flex items-center text-xs font-medium text-slate-500 bg-slate-100 px-2.5 h-9 rounded-lg border border-slate-200">
+          <span className="hidden md:inline-flex items-center text-xs font-semibold text-slate-500 bg-slate-100/90 px-3 h-9 rounded-lg border border-slate-200">
             <span>{countBadge}</span>
           </span>
         </div>

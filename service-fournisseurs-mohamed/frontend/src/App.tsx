@@ -237,20 +237,20 @@ export default function App() {
         onOpenCreateModal={handleOpenCreate}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Main Container: Wide, Spacious & Responsive Enterprise Layout */}
+      <main className="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-7">
         {/* Hero Section */}
-        <div className="mb-7 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-bold px-2.5 py-1 rounded-full mb-2 shadow-2xs">
+            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-bold px-2.5 py-1 rounded-full mb-2.5 shadow-2xs">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
               <span>Gestion des Achats & Approvisionnements</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               Répertoire des Fournisseurs
             </h1>
-            <p className="text-sm text-slate-500 mt-1 max-w-xl">
-              Consultez les fiches fournisseurs, vérifiez l'éligibilité et explorez l'historique des bons de commande émis via le microservice Commandes.
+            <p className="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+              Consultez les fiches fournisseurs, gérez l'éligibilité aux consultations et explorez l'historique complet des bons de commande.
             </p>
           </div>
         </div>
