@@ -100,14 +100,14 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden animate-fade-in-up">
       <div ref={scrollContainerRef} className="overflow-x-auto w-full">
-        <table className="w-full text-left border-collapse table-fixed min-w-[980px]">
+        <table className="w-full text-left border-collapse table-fixed min-w-[1020px]">
           {/* Explicit balanced column proportions for clean desktop presentation */}
           <colgroup>
-            <col className="w-[28%]" />
-            <col className="w-[25%]" />
+            <col className="w-[26%]" />
             <col className="w-[23%]" />
+            <col className="w-[20%]" />
             <col className="w-[10%]" />
-            <col className="w-[14%]" />
+            <col className="w-[21%]" />
           </colgroup>
 
           <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase font-bold text-slate-500 tracking-wider select-none">
@@ -124,7 +124,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
               <th scope="col" className="px-4 py-3.5 text-center">
                 Statut
               </th>
-              <th scope="col" className="px-6 py-3.5 text-right">
+              <th scope="col" className="pr-6 pl-2 py-3.5 text-right">
                 Actions
               </th>
             </tr>
@@ -263,7 +263,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                   </td>
 
                   {/* Colonne 5: Actions */}
-                  <td className="px-6 py-4 align-middle text-right whitespace-nowrap">
+                  <td className="pr-6 pl-2 py-4 align-middle text-right whitespace-nowrap">
                     <div className="inline-flex items-center justify-end space-x-1.5">
                       {/* Action Voir Commandes */}
                       <button
