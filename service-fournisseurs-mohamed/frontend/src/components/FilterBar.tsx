@@ -16,8 +16,8 @@ interface FilterBarProps {
   onSearchChange: (value: string) => void;
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (status: 'all' | 'active' | 'inactive') => void;
-  viewMode: 'table' | 'grid';
-  onViewModeChange: (mode: 'table' | 'grid') => void;
+  viewMode?: 'table' | 'grid';
+  onViewModeChange?: (mode: 'table' | 'grid') => void;
   onOpenCreateModal: () => void;
   onRefresh: () => void;
   loading: boolean;
@@ -30,7 +30,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
-  viewMode,
+  viewMode = 'table',
   onViewModeChange,
   onOpenCreateModal,
   onRefresh,
@@ -74,6 +74,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     link.click();
     document.body.removeChild(link);
   };
+
+  const countLabel = `${totalFiltered} ${totalFiltered > 1 ? 'résultats' : 'résultat'}`;
 
   return (
     <div className="glass-panel rounded-2xl border border-slate-200/80 p-4 shadow-xs mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
@@ -141,7 +143,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* Total found badge */}
         <span className="hidden lg:flex items-center text-xs font-medium text-slate-500 bg-slate-100/70 border border-slate-200/70 px-2.5 py-1 rounded-lg">
           <Filter className="w-3 h-3 text-slate-400 mr-1.5" />
-          {totalFiltered} résultat{totalFiltered > 1 ? 's' : ''}
+          <span>{countLabel}</span>
         </span>
       </div>
 
@@ -150,7 +152,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* View Switcher (Table vs Grid) */}
         <div className="inline-flex rounded-xl border border-slate-200/90 p-1 bg-slate-100/70 shadow-inner">
           <button
-            onClick={() => onViewModeChange('table')}
+            onClick={() => onViewModeChange && onViewModeChange('table')}
             title="Vue Tableau"
             className={`p-1.5 rounded-lg transition-all ${
               viewMode === 'table'
@@ -161,7 +163,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <List className="w-4 h-4" />
           </button>
           <button
-            onClick={() => onViewModeChange('grid')}
+            onClick={() => onViewModeChange && onViewModeChange('grid')}
             title="Vue Cartes"
             className={`p-1.5 rounded-lg transition-all ${
               viewMode === 'grid'

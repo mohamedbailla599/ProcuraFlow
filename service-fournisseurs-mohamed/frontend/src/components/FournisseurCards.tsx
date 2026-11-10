@@ -242,3 +242,4 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
     </div>
   );
 };
+
