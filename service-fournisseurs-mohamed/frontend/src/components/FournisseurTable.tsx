@@ -14,10 +14,12 @@ import {
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { computeSupplierRating } from '../utils/scoring';
+import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
 
 interface FournisseurTableProps {
   fournisseurs: Fournisseur[];
   loading: boolean;
+  orderStats?: Record<number, SupplierOrderStats>;
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
   onViewCommandes: (fournisseur: Fournisseur) => void;
@@ -26,6 +28,7 @@ interface FournisseurTableProps {
 export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   fournisseurs,
   loading,
+  orderStats,
   onEdit,
   onToggleStatus,
   onViewCommandes,
@@ -140,6 +143,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
             {fournisseurs.map((fournisseur, index) => {
               const initials = getInitials(fournisseur.nom);
               const rating = computeSupplierRating(fournisseur);
+              const stats = orderStats?.[fournisseur.id];
 
               return (
                 <tr
@@ -296,15 +300,27 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                   {/* Colonne 5: Actions */}
                   <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap">
                     <div className="inline-flex items-center justify-end space-x-1.5">
-                      {/* Action Voir Commandes (Icon-only with glowing hover) */}
+                      {/* Action Voir Commandes (Icon-only with glowing hover and order counter badge) */}
                       <button
                         type="button"
                         onClick={() => onViewCommandes(fournisseur)}
-                        title="Consulter les bons de commande de ce fournisseur"
-                        aria-label="Voir les commandes"
-                        className="group/cmd w-8 h-8 flex items-center justify-center rounded-lg border border-teal-200/90 dark:border-teal-800/80 bg-teal-50/80 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 transition-all duration-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 hover:border-teal-400 dark:hover:border-teal-400 hover:shadow-[0_0_12px_rgba(20,184,166,0.55)] dark:hover:shadow-[0_0_16px_rgba(45,212,191,0.45)] hover:scale-105 active:scale-95"
+                        title={
+                          stats && stats.totalOrders > 0
+                            ? `${fournisseur.nom} : ${stats.activeOrders} commande(s) active(s)${stats.completedOrders > 0 ? ` (${stats.completedOrders} livrée(s))` : ''} · Total engagé : ${formatMAD(stats.totalOrderedAmount)}${stats.latestOrderDate ? ` · Dernière : ${new Date(stats.latestOrderDate).toLocaleDateString('fr-FR')}` : ''}`
+                            : `Consulter les bons de commande de ${fournisseur.nom}`
+                        }
+                        aria-label={`Voir les commandes de ${fournisseur.nom}`}
+                        className="relative group/cmd w-8 h-8 flex items-center justify-center rounded-lg border border-teal-200/90 dark:border-teal-800/80 bg-teal-50/80 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 transition-all duration-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 hover:border-teal-400 dark:hover:border-teal-400 hover:shadow-[0_0_12px_rgba(20,184,166,0.55)] dark:hover:shadow-[0_0_16px_rgba(45,212,191,0.45)] hover:scale-105 active:scale-95"
                       >
                         <ShoppingBag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 transition-transform duration-200 group-hover/cmd:scale-110" />
+                        {stats && stats.totalOrders > 0 && (
+                          <span
+                            className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 flex items-center justify-center text-[9px] font-extrabold rounded-full bg-teal-600 text-white shadow-xs border border-white dark:border-slate-900"
+                            title={`${stats.activeOrders} commande(s) active(s)`}
+                          >
+                            {stats.activeOrders}
+                          </span>
+                        )}
                       </button>
 
                       {/* Action Modifier */}

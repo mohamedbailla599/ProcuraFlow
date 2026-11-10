@@ -87,6 +87,40 @@ export const MOCK_COMMANDES: Record<number, CommandeSummary[]> = {
         { designation: 'Kits de lames et lamelles préparées', quantite: 30, prixUnitaire: 200.0 },
       ],
     },
+    {
+      id: 202,
+      fournisseurId: 2,
+      dateCommande: '2026-11-02T09:15:00Z',
+      statut: 'FACTUREE',
+      montantTotal: 12200.0,
+      lignes: [
+        { designation: 'Agitateurs magnétiques chauffants', quantite: 4, prixUnitaire: 3050.0 },
+      ],
+    },
+  ],
+  3: [
+    {
+      id: 301,
+      fournisseurId: 3,
+      dateCommande: '2026-09-12T11:00:00Z',
+      statut: 'ANNULEE',
+      montantTotal: 6500.0,
+      lignes: [
+        { designation: 'Chaises de bureau ergonomiques', quantite: 10, prixUnitaire: 650.0 },
+      ],
+    },
+  ],
+  4: [
+    {
+      id: 401,
+      fournisseurId: 4,
+      dateCommande: '2026-10-25T08:30:00Z',
+      statut: 'FACTUREE',
+      montantTotal: 19400.0,
+      lignes: [
+        { designation: 'Nettoyage & assainissement périodique des locaux', quantite: 1, prixUnitaire: 19400.0 },
+      ],
+    },
   ],
 };
 

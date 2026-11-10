@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   ShoppingBag,
@@ -15,9 +15,12 @@ import {
   Ban,
   Mail,
   Phone,
+  BarChart3,
+  Check,
 } from 'lucide-react';
 import { Fournisseur, CommandeSummary, ApiErrorResponse } from '../types/fournisseur';
 import { fournisseurApi, MOCK_COMMANDES } from '../api/fournisseurApi';
+import { computeOrderStats, formatMAD } from '../utils/orderStats';
 
 interface CommandesDrawerProps {
   fournisseur: Fournisseur | null;
@@ -36,17 +39,20 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'>('ALL');
 
   useEffect(() => {
     if (!fournisseur || !isOpen) {
       setCommandes([]);
       setError(null);
+      setStatusFilter('ALL');
       return;
     }
 
     const loadCommandes = async () => {
       setLoading(true);
       setError(null);
+      setStatusFilter('ALL');
 
       if (demoMode) {
         const list = MOCK_COMMANDES[fournisseur.id] || [];
@@ -76,6 +82,26 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
     loadCommandes();
   }, [fournisseur, isOpen, demoMode]);
+
+  const stats = useMemo(() => computeOrderStats(commandes), [commandes]);
+
+  const filteredCommandes = useMemo(() => {
+    return commandes.filter((cmd) => {
+      if (statusFilter === 'ACTIVE') return cmd.statut === 'EN_ATTENTE' || cmd.statut === 'VALIDEE';
+      if (statusFilter === 'COMPLETED') return cmd.statut === 'RECEPTIONNEE' || cmd.statut === 'FACTUREE';
+      if (statusFilter === 'CANCELLED') return cmd.statut === 'ANNULEE';
+      return true;
+    });
+  }, [commandes, statusFilter]);
+
+  const formattedLatestDate = useMemo(() => {
+    if (!stats.latestOrderDate) return 'Aucune commande';
+    return new Date(stats.latestOrderDate).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }, [stats.latestOrderDate]);
 
   // Escape key to close
   useEffect(() => {
@@ -243,103 +269,242 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
             </div>
           )}
 
-          {/* Orders List */}
+          {/* Orders List & Purchasing Stats */}
           {!loading && commandes.length > 0 && (
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Commandes ({commandes.length})
-                </p>
-                <span className="text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-200/70 dark:border-teal-800/60">
-                  Total : {commandes.reduce((acc, c) => acc + c.montantTotal, 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                </span>
-              </div>
+            <div className="space-y-4">
+              {/* Purchasing KPI Statistics Grid */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <BarChart3 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>Statistiques d'Approvisionnement</span>
+                </div>
 
-              {commandes.map((cmd) => {
-                const isExpanded = expandedId === cmd.id;
-                const statusConfig = getStatusConfig(cmd.statut);
-                const formattedDate = new Date(cmd.dateCommande).toLocaleDateString('fr-FR', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                });
-
-                return (
-                  <div
-                    key={cmd.id}
-                    className="bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl shadow-xs overflow-hidden transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md"
-                  >
-                    <div
-                      onClick={() => toggleExpand(cmd.id)}
-                      className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/60 transition-colors"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
-                            Commande #{cmd.id}
-                          </span>
-                          <span
-                            className={`inline-flex items-center text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${statusConfig.badge}`}
-                          >
-                            {statusConfig.icon}
-                            {cmd.statut}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                          <span>Émise le {formattedDate}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                        <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                          {cmd.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                        </span>
-                        <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-600 bg-slate-100/80 dark:bg-slate-700">
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
-                        </div>
-                      </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Total Commandé (Engagé) */}
+                  <div className="p-3.5 rounded-xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/70 shadow-2xs">
+                    <div className="flex items-center justify-between text-teal-800 dark:text-teal-300">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Total Engagé</span>
+                      <ShoppingBag className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                     </div>
+                    <div className="mt-1 text-base font-extrabold text-teal-900 dark:text-teal-100">
+                      {formatMAD(stats.totalOrderedAmount)}
+                    </div>
+                    <p className="text-[10px] text-teal-700/80 dark:text-teal-400/80 mt-0.5 font-medium">
+                      {stats.activeOrders} commande{stats.activeOrders > 1 ? 's' : ''} active{stats.activeOrders > 1 ? 's' : ''} (hors annulations)
+                    </p>
+                  </div>
 
-                    {/* Expanded order lines */}
-                    {isExpanded && cmd.lignes && cmd.lignes.length > 0 && (
-                      <div className="px-5 pb-5 pt-3 bg-slate-50/80 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-700 text-xs">
-                        <p className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center space-x-1.5">
-                          <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                          <span>Détail des articles commandés :</span>
-                        </p>
-                        <div className="space-y-1.5">
-                          {cmd.lignes.map((ligne, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700 shadow-2xs"
-                            >
-                              <div className="text-slate-800 dark:text-slate-200">
-                                <span className="font-semibold text-slate-900 dark:text-white">{ligne.designation}</span>
-                                <span className="text-slate-400 dark:text-slate-500 ml-2">Qté : {ligne.quantite}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-bold text-slate-800 dark:text-slate-200">
-                                   {(ligne.quantite * ligne.prixUnitaire).toLocaleString('fr-FR', {
-                                    minimumFractionDigits: 2,
-                                  })} MAD
-                                </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
-                                  ({ligne.prixUnitaire.toFixed(2)} MAD / u)
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Dépenses Réalisées (Livrées & Facturées) */}
+                  <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/70 shadow-2xs">
+                    <div className="flex items-center justify-between text-purple-800 dark:text-purple-300">
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Dépenses Réalisées</span>
+                      <Receipt className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="mt-1 text-base font-extrabold text-purple-900 dark:text-purple-100">
+                      {formatMAD(stats.totalSpentAmount)}
+                    </div>
+                    <p className="text-[10px] text-purple-700/80 dark:text-purple-400/80 mt-0.5 font-medium">
+                      {stats.completedOrders} réceptionnée{stats.completedOrders > 1 ? 's' : ''} ou facturée{stats.completedOrders > 1 ? 's' : ''}
+                    </p>
+                  </div>
+
+                  {/* État du portefeuille */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      Exécution des commandes
+                    </span>
+                    <div className="mt-1 flex items-baseline space-x-1.5">
+                      <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                        {stats.completedOrders} / {stats.totalOrders}
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">honorées</span>
+                    </div>
+                    {stats.cancelledOrders > 0 ? (
+                      <span className="text-[10px] font-medium text-rose-600 dark:text-rose-400 block mt-0.5">
+                        {stats.cancelledOrders} annulée{stats.cancelledOrders > 1 ? 's' : ''} (exclue{stats.cancelledOrders > 1 ? 's' : ''} des totaux)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                        0 annulation
+                      </span>
                     )}
                   </div>
-                );
-              })}
+
+                  {/* Dernière Commande */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      Dernière commande
+                    </span>
+                    <div className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                      {formattedLatestDate}
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                      Devise : {stats.currency} (Dirham marocain)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Tabs Filter */}
+              <div className="flex items-center space-x-1.5 p-1 bg-slate-100 dark:bg-slate-800/90 rounded-xl text-xs overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    statusFilter === 'ALL'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Toutes ({stats.totalOrders})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ACTIVE')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    statusFilter === 'ACTIVE'
+                      ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  En cours ({stats.pendingOrders})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('COMPLETED')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    statusFilter === 'COMPLETED'
+                      ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-xs font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Livrées/Facturées ({stats.completedOrders})
+                </button>
+                {stats.cancelledOrders > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('CANCELLED')}
+                    className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                      statusFilter === 'CANCELLED'
+                        ? 'bg-white dark:bg-slate-700 text-rose-700 dark:text-rose-300 shadow-xs font-semibold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Annulées ({stats.cancelledOrders})
+                  </button>
+                )}
+              </div>
+
+              {/* Order Cards */}
+              <div className="space-y-3">
+                {filteredCommandes.length === 0 ? (
+                  <p className="text-center py-6 text-xs text-slate-400 italic">
+                    Aucune commande dans cette catégorie.
+                  </p>
+                ) : (
+                  filteredCommandes.map((cmd) => {
+                    const isExpanded = expandedId === cmd.id;
+                    const statusConfig = getStatusConfig(cmd.statut);
+                    const formattedDate = new Date(cmd.dateCommande).toLocaleDateString('fr-FR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    });
+                    const isCancelled = cmd.statut === 'ANNULEE';
+
+                    return (
+                      <div
+                        key={cmd.id}
+                        className={`border rounded-2xl shadow-xs overflow-hidden transition-all ${
+                          isCancelled
+                            ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 opacity-80'
+                            : 'bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md'
+                        }`}
+                      >
+                        <div
+                          onClick={() => toggleExpand(cmd.id)}
+                          className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/60 transition-colors"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
+                                Commande #{cmd.id}
+                              </span>
+                              <span
+                                className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-2xs ${statusConfig.badge}`}
+                              >
+                                {statusConfig.icon}
+                                {cmd.statut}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                              <span>Émise le {formattedDate}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-3 text-right">
+                            <div>
+                              <span
+                                className={`font-extrabold text-sm block ${
+                                  isCancelled
+                                    ? 'line-through text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-900 dark:text-white'
+                                }`}
+                              >
+                                {formatMAD(cmd.montantTotal)}
+                              </span>
+                              {isCancelled && (
+                                <span className="text-[10px] text-rose-500 dark:text-rose-400 block font-medium">
+                                  Non comptabilisée
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-600 bg-slate-100/80 dark:bg-slate-700">
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded order lines */}
+                        {isExpanded && cmd.lignes && cmd.lignes.length > 0 && (
+                          <div className="px-4 pb-4 pt-2.5 bg-slate-50/80 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-700 text-xs">
+                            <p className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center space-x-1.5">
+                              <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                              <span>Détail des articles commandés :</span>
+                            </p>
+                            <div className="space-y-1.5">
+                              {cmd.lignes.map((ligne, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700 shadow-2xs"
+                                >
+                                  <div className="text-slate-800 dark:text-slate-200">
+                                    <span className="font-semibold text-slate-900 dark:text-white">{ligne.designation}</span>
+                                    <span className="text-slate-400 dark:text-slate-500 ml-2">Qté : {ligne.quantite}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      {formatMAD(ligne.quantite * ligne.prixUnitaire)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
+                                      ({ligne.prixUnitaire.toFixed(2)} MAD / u)
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           )}
         </div>

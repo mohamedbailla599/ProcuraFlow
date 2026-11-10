@@ -10,6 +10,7 @@ import { CommandesDrawer } from './components/CommandesDrawer';
 import { Toast, ToastMessage } from './components/Toast';
 import { Fournisseur, FournisseurRequest, FilterParams } from './types/fournisseur';
 import { computeSupplierRating, saveSupplierRating } from './utils/scoring';
+import { computeOrderStats, SupplierOrderStats } from './utils/orderStats';
 import {
   fournisseurApi,
   INITIAL_MOCK_FOURNISSEURS,
@@ -54,6 +55,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState<SortOption>('name-asc');
   const [cityFilter, setCityFilter] = useState<string>('all');
   const [commandCounts, setCommandCounts] = useState<Record<number, number>>({});
+  const [orderStats, setOrderStats] = useState<Record<number, SupplierOrderStats>>({});
 
   // Modals & Drawers
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -202,10 +204,14 @@ export default function App() {
 
     if (demoMode) {
       const counts: Record<number, number> = {};
+      const statsMap: Record<number, SupplierOrderStats> = {};
       mockStore.forEach((f) => {
-        counts[f.id] = MOCK_COMMANDES[f.id]?.length || 0;
+        const list = MOCK_COMMANDES[f.id] || [];
+        counts[f.id] = list.length;
+        statsMap[f.id] = computeOrderStats(list);
       });
       setCommandCounts(counts);
+      setOrderStats(statsMap);
 
       let filtered = [...mockStore];
       if (statusFilter === 'active') {
@@ -251,11 +257,12 @@ export default function App() {
 
       setAllFournisseurs(fullList);
 
-      // Background command count loading without blocking
+      // Background command count & purchasing statistics loading without blocking
       fullList.forEach(async (f) => {
         try {
           const cmds = await fournisseurApi.getCommandes(f.id);
           setCommandCounts((prev) => ({ ...prev, [f.id]: cmds.length }));
+          setOrderStats((prev) => ({ ...prev, [f.id]: computeOrderStats(cmds) }));
         } catch {
           // If microservice 8082 is down, ignore
         }
@@ -497,6 +504,7 @@ export default function App() {
           <FournisseurTable
             fournisseurs={fournisseurs}
             loading={loading}
+            orderStats={orderStats}
             onEdit={handleOpenEdit}
             onToggleStatus={handleToggleStatus}
             onViewCommandes={handleViewCommandes}
@@ -505,6 +513,7 @@ export default function App() {
           <FournisseurCards
             fournisseurs={fournisseurs}
             loading={loading}
+            orderStats={orderStats}
             onEdit={handleOpenEdit}
             onToggleStatus={handleToggleStatus}
             onViewCommandes={handleViewCommandes}

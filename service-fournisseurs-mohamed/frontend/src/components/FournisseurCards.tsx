@@ -11,13 +11,17 @@ import {
   Copy,
   Check,
   Star,
+  TrendingUp,
+  Calendar,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { computeSupplierRating } from '../utils/scoring';
+import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
 
 interface FournisseurCardsProps {
   fournisseurs: Fournisseur[];
   loading: boolean;
+  orderStats?: Record<number, SupplierOrderStats>;
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
   onViewCommandes: (fournisseur: Fournisseur) => void;
@@ -26,6 +30,7 @@ interface FournisseurCardsProps {
 export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
   fournisseurs,
   loading,
+  orderStats,
   onEdit,
   onToggleStatus,
   onViewCommandes,
@@ -91,6 +96,7 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
       {fournisseurs.map((fournisseur, index) => {
         const initials = getInitials(fournisseur.nom);
         const rating = computeSupplierRating(fournisseur);
+        const stats = orderStats?.[fournisseur.id];
 
         return (
           <div
@@ -252,6 +258,52 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Purchasing Statistics Section */}
+              <div className="p-3 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100/90 dark:border-slate-700/60 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    <span>Total Commandé</span>
+                  </span>
+                  <span className="font-extrabold text-slate-900 dark:text-white text-xs">
+                    {stats ? formatMAD(stats.totalOrderedAmount) : '0,00 MAD'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">
+                      Commandes
+                    </span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {stats ? `${stats.activeOrders} active${stats.activeOrders > 1 ? 's' : ''}` : '0'}
+                      {stats && stats.completedOrders > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400 ml-1">
+                          ({stats.completedOrders} liv.)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">
+                      Dernière Cde
+                    </span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-end space-x-1">
+                      <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>
+                        {stats?.latestOrderDate
+                          ? new Date(stats.latestOrderDate).toLocaleDateString('fr-FR', {
+                              day: '2-digit',
+                              month: 'short',
+                            })
+                          : 'Aucune'}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Card Actions Footer */}
@@ -263,6 +315,11 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
               >
                 <ShoppingBag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                 <span>Commandes</span>
+                {stats && stats.totalOrders > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-600 text-white">
+                    {stats.activeOrders}
+                  </span>
+                )}
               </button>
 
               <div className="flex items-center space-x-1">
