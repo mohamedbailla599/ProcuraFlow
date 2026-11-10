@@ -8,6 +8,9 @@ export default {
   theme: {
     extend: {
       colors: {
+        slate: {
+          850: '#151f32',
+        },
         brand: {
           50: '#f0fdfa',
           100: '#ccfbf1',
@@ -17,6 +20,9 @@ export default {
           800: '#115e59',
           900: '#134e4a',
         }
+      },
+      transitionTimingFunction: {
+        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       boxShadow: {
         '2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.03)',

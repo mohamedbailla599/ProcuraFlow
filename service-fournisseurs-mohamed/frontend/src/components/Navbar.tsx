@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleDarkMode,
 }) => {
   return (
-    <header className="sticky top-0 z-30 h-14 glass-panel border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors duration-200">
+    <header className="sticky top-0 z-30 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors duration-200">
       <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 h-full">
         <div className="flex items-center justify-between h-full">
           {/* Left: Brand Identity */}
@@ -44,26 +44,47 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Right: Actions and Status */}
-          <div className="flex items-center space-x-2">
-            {/* Dark Mode Toggle Button */}
+          <div className="flex items-center space-x-2.5">
+            {/* Animated Interactive Theme Toggle Switch */}
             <button
               type="button"
               onClick={onToggleDarkMode}
-              title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              role="switch"
+              aria-checked={isDarkMode}
+              title={isDarkMode ? 'Basculer en mode clair' : 'Basculer en mode sombre'}
               aria-label={isDarkMode ? 'Activer le mode clair' : 'Activer le mode sombre'}
-              className="inline-flex items-center space-x-1.5 h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg transition-all duration-150 active:scale-[0.97]"
+              className="relative inline-flex items-center h-8 w-16 rounded-full p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 select-none bg-slate-200/80 dark:bg-slate-800 border border-slate-300/80 dark:border-slate-700/80 shadow-2xs group cursor-pointer"
             >
-              {isDarkMode ? (
-                <>
-                  <Sun className="w-3.5 h-3.5 text-amber-400 animate-in spin-in-90 duration-200" />
-                  <span className="hidden sm:inline font-semibold">Clair</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 transition-transform duration-200" />
-                  <span className="hidden sm:inline font-semibold">Sombre</span>
-                </>
-              )}
+              {/* Sun icon on left */}
+              <span className="flex-1 flex justify-center items-center pointer-events-none">
+                <Sun
+                  className={`w-3.5 h-3.5 transition-all duration-300 ${
+                    isDarkMode ? 'text-slate-400 opacity-40 scale-75' : 'text-amber-500 opacity-100 scale-100'
+                  }`}
+                />
+              </span>
+
+              {/* Moon icon on right */}
+              <span className="flex-1 flex justify-center items-center pointer-events-none">
+                <Moon
+                  className={`w-3.5 h-3.5 transition-all duration-300 ${
+                    isDarkMode ? 'text-teal-400 opacity-100 scale-100' : 'text-slate-400 opacity-40 scale-75'
+                  }`}
+                />
+              </span>
+
+              {/* Sliding circle thumb with micro-animation */}
+              <span
+                className={`absolute top-1 left-1 w-6 h-6 rounded-full bg-white dark:bg-slate-900 shadow-md border border-slate-200/90 dark:border-slate-700 flex items-center justify-center transform transition-transform duration-300 ease-out group-hover:scale-105 active:scale-95 pointer-events-none ${
+                  isDarkMode ? 'translate-x-8' : 'translate-x-0'
+                }`}
+              >
+                {isDarkMode ? (
+                  <Moon className="w-3.5 h-3.5 text-teal-400 transition-all duration-300 rotate-0 scale-100" />
+                ) : (
+                  <Sun className="w-3.5 h-3.5 text-amber-500 transition-all duration-300 rotate-0 scale-100" />
+                )}
+              </span>
             </button>
 
             {/* Health Status Indicator */}

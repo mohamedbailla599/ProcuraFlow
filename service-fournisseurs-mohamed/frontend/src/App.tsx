@@ -93,10 +93,39 @@ export default function App() {
     }
   });
 
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      const root = document.documentElement;
+      const body = document.body;
+      if (next) {
+        root.classList.add('dark');
+        body?.classList.add('dark');
+        try {
+          localStorage.setItem('procuraflow-theme', 'dark');
+        } catch {
+          // ignore
+        }
+      } else {
+        root.classList.remove('dark');
+        body?.classList.remove('dark');
+        try {
+          localStorage.setItem('procuraflow-theme', 'light');
+        } catch {
+          // ignore
+        }
+      }
+      showToast('success', next ? 'Mode Sombre activé.' : 'Mode Clair activé.');
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     if (isDarkMode) {
       root.classList.add('dark');
+      body?.classList.add('dark');
       try {
         localStorage.setItem('procuraflow-theme', 'dark');
       } catch {
@@ -104,6 +133,7 @@ export default function App() {
       }
     } else {
       root.classList.remove('dark');
+      body?.classList.remove('dark');
       try {
         localStorage.setItem('procuraflow-theme', 'light');
       } catch {
@@ -396,7 +426,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50/20 dark:from-slate-950 dark:via-slate-950 dark:to-teal-950/20 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+    <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200 ${isDarkMode ? 'dark' : ''}`}>
       {/* Top Navbar */}
       <Navbar
         isBackendHealthy={isBackendHealthy}
@@ -407,13 +437,7 @@ export default function App() {
         }}
         onRefreshHealth={checkBackendHealth}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => {
-          setIsDarkMode((prev) => {
-            const next = !prev;
-            showToast('success', next ? 'Mode Sombre activé.' : 'Mode Clair activé.');
-            return next;
-          });
-        }}
+        onToggleDarkMode={toggleDarkMode}
         onOpenCreateModal={handleOpenCreate}
       />
 
