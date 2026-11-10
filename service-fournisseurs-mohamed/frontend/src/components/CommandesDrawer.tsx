@@ -174,28 +174,28 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Supplier quick summary card */}
-          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/80 p-4.5 space-y-2 text-xs shadow-xs">
+          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/80 p-5 space-y-3.5 text-xs shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 flex items-center space-x-1.5">
-                <Mail className="w-3.5 h-3.5 text-slate-400" />
-                <span>E-mail :</span>
+              <span className="text-slate-500 flex items-center space-x-2">
+                <Mail className="w-4 h-4 text-slate-400" />
+                <span className="font-medium">E-mail :</span>
               </span>
-              <span className="font-semibold text-slate-800">{fournisseur.email}</span>
+              <span className="font-semibold text-slate-900">{fournisseur.email}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-500 flex items-center space-x-1.5">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                <span>Téléphone :</span>
+              <span className="text-slate-500 flex items-center space-x-2">
+                <Phone className="w-4 h-4 text-slate-400" />
+                <span className="font-medium">Téléphone :</span>
               </span>
-              <span className="font-semibold text-slate-800">{fournisseur.telephone || 'Non renseigné'}</span>
+              <span className="font-semibold text-slate-900">{fournisseur.telephone || 'Non renseigné'}</span>
             </div>
-            <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-              <span className="text-slate-500">Statut du contrat :</span>
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200/70">
+              <span className="text-slate-500 font-medium">Statut du contrat :</span>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                className={`inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border ${
                   fournisseur.actif
-                    ? 'bg-emerald-100/70 text-emerald-800'
-                    : 'bg-slate-200 text-slate-600'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
                 }`}
               >
                 {fournisseur.actif ? 'Actif (Éligible)' : 'Inactif (Suspendu)'}
@@ -205,12 +205,12 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
           {/* Degraded mode alert */}
           {error && (
-            <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4.5 text-amber-900 text-xs flex items-start space-x-3 shadow-xs animate-fade-in-up">
+            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-5 text-amber-900 text-xs flex items-start space-x-3.5 shadow-xs animate-fade-in-up">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <p className="font-bold text-amber-950">Microservice Commandes non démarré :</p>
                 <p className="text-amber-800 leading-relaxed">{error}</p>
-                <p className="pt-1 text-[11px] text-amber-700/90 font-medium">
+                <p className="pt-1 text-[11px] text-amber-700 font-medium leading-relaxed">
                   Le contrat d'intégration ProcuraFlow intercepte cette coupure avec un statut HTTP 503 pour préserver la disponibilité de votre service Fournisseurs.
                 </p>
               </div>
@@ -271,7 +271,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                   >
                     <div
                       onClick={() => toggleExpand(cmd.id)}
-                      className="p-4.5 flex items-center justify-between cursor-pointer hover:bg-slate-50/60 transition-colors"
+                      className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/60 transition-colors"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center space-x-2">
@@ -307,7 +307,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
                     {/* Expanded order lines */}
                     {isExpanded && cmd.lignes && cmd.lignes.length > 0 && (
-                      <div className="px-4.5 pb-4.5 pt-1.5 bg-slate-50/80 border-t border-slate-100 text-xs">
+                      <div className="px-5 pb-5 pt-3 bg-slate-50/80 border-t border-slate-100 text-xs">
                         <p className="font-bold text-slate-700 mb-2 flex items-center space-x-1.5">
                           <Layers className="w-3.5 h-3.5 text-teal-600" />
                           <span>Détail des articles commandés :</span>

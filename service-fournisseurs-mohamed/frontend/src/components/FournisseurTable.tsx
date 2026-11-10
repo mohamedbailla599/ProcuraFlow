@@ -58,7 +58,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   if (loading && fournisseurs.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden animate-fade-in-up">
-        <div className="p-4.5 border-b border-slate-100 bg-slate-50/60">
+        <div className="p-5 border-b border-slate-100 bg-slate-50/60">
           <div className="h-4 w-48 rounded-md skeleton-shimmer" />
         </div>
         <div className="divide-y divide-slate-100">
