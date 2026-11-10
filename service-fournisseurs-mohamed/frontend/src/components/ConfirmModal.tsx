@@ -62,32 +62,32 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       />
 
       {/* Modal Dialog Card */}
-      <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200/80 w-full max-w-md overflow-hidden animate-scale-in">
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-md overflow-hidden animate-scale-in">
         {/* Header decoration */}
         <div className="px-6 pt-6 pb-4 flex items-start justify-between">
           <div className="flex items-start space-x-3.5">
             <div
               className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-xs ${
                 isDanger
-                  ? 'bg-rose-50 text-rose-600 border-rose-200/80'
-                  : 'bg-emerald-50 text-emerald-600 border-emerald-200/80'
+                  ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border-rose-200/80 dark:border-rose-900/60'
+                  : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-900/60'
               }`}
             >
               {isDanger ? (
-                <Power className="w-5 h-5 text-rose-600" />
+                <Power className="w-5 h-5 text-rose-600 dark:text-rose-400" />
               ) : (
-                <RotateCcw className="w-5 h-5 text-emerald-600" />
+                <RotateCcw className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               )}
             </div>
             <div>
               <h3
                 id="confirm-modal-title"
-                className="font-bold text-slate-900 text-base leading-snug"
+                className="font-bold text-slate-900 dark:text-white text-base leading-snug"
               >
                 {title}
               </h3>
               {supplierName && (
-                <div className="inline-flex items-center space-x-1.5 mt-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-800">
+                <div className="inline-flex items-center space-x-1.5 mt-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200">
                   <span className="truncate max-w-[240px]">{supplierName}</span>
                 </div>
               )}
@@ -97,7 +97,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-150 active:scale-95"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150 active:scale-95"
             aria-label="Fermer"
           >
             <X className="w-4 h-4" />
@@ -106,13 +106,13 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
         {/* Message body */}
         <div className="px-6 pb-5 pt-1">
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
             {message}
           </p>
 
           {isDanger && (
-            <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-start space-x-2 text-[11px] text-amber-800">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="mt-3 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 flex items-start space-x-2 text-[11px] text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <span>
                 Le fournisseur désactivé ne pourra plus être sélectionné pour l'émission de nouveaux bons de commande.
               </span>
@@ -121,12 +121,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end space-x-2.5">
+        <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-2.5">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="h-9 px-4 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 active:scale-[0.97]"
+            className="h-9 px-4 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-150 active:scale-[0.97]"
           >
             {cancelLabel}
           </button>

@@ -82,6 +82,36 @@ export default function App() {
   // Notifications
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
+  // Theme (Dark / Light mode)
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('procuraflow-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      try {
+        localStorage.setItem('procuraflow-theme', 'dark');
+      } catch {
+        // ignore
+      }
+    } else {
+      root.classList.remove('dark');
+      try {
+        localStorage.setItem('procuraflow-theme', 'light');
+      } catch {
+        // ignore
+      }
+    }
+  }, [isDarkMode]);
+
   const showToast = (type: 'success' | 'error', text: string) => {
     setToast({ id: String(Date.now()), type, text });
   };
@@ -366,7 +396,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50/20 text-slate-800">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50/20 dark:from-slate-950 dark:via-slate-950 dark:to-teal-950/20 text-slate-800 dark:text-slate-100 transition-colors duration-200">
       {/* Top Navbar */}
       <Navbar
         isBackendHealthy={isBackendHealthy}
@@ -376,6 +406,14 @@ export default function App() {
           showToast('success', !demoMode ? 'Mode Démo activé.' : 'Mode API Réel activé.');
         }}
         onRefreshHealth={checkBackendHealth}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => {
+          setIsDarkMode((prev) => {
+            const next = !prev;
+            showToast('success', next ? 'Mode Sombre activé.' : 'Mode Clair activé.');
+            return next;
+          });
+        }}
         onOpenCreateModal={handleOpenCreate}
       />
 
@@ -384,17 +422,17 @@ export default function App() {
         {/* Hero Section */}
         <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-up">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full mb-2.5 shadow-xs">
+            <div className="inline-flex items-center space-x-2 bg-teal-50 dark:bg-teal-950/60 border border-teal-200/80 dark:border-teal-800/80 text-teal-800 dark:text-teal-300 text-xs font-semibold px-3 py-1 rounded-full mb-2.5 shadow-xs">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-600" />
               </span>
               <span>Gestion des Achats & Approvisionnements</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Répertoire des Fournisseurs
             </h1>
-            <p className="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
               Consultez les fiches fournisseurs, gérez l'éligibilité aux consultations et explorez l'historique complet des bons de commande.
             </p>
           </div>

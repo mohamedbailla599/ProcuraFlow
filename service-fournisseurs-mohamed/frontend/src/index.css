@@ -51,14 +51,28 @@
     --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
+  .dark {
+    /* ─── Dark Mode Color System ─── */
+    --color-bg: #0B0F17;
+    --color-surface: #111827;
+    --color-text: #F8FAFC;
+    --color-text-secondary: #94A3B8;
+    --color-border: #1E293B;
+    --color-border-light: #334155;
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply min-h-screen bg-[#f8fafc] text-slate-800 antialiased selection:bg-teal-500/20 selection:text-teal-900;
+    @apply min-h-screen bg-[#f8fafc] text-slate-800 antialiased selection:bg-teal-500/20 selection:text-teal-900 transition-colors duration-200;
     font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  html.dark body {
+    @apply bg-[#0B0F17] text-slate-100 selection:bg-teal-500/30 selection:text-teal-200;
   }
 }
 
@@ -103,10 +117,10 @@
     @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border;
   }
   .badge-active {
-    @apply badge bg-emerald-50 text-emerald-700 border-emerald-200/80;
+    @apply badge bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/70;
   }
   .badge-inactive {
-    @apply badge bg-slate-100 text-slate-600 border-slate-200;
+    @apply badge bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700;
   }
 
   /* ─── Input System ─── */
@@ -134,6 +148,13 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* ─── Keyframes ─── */
@@ -191,6 +212,12 @@
   animation: shimmer 1.5s infinite;
 }
 
+html.dark .skeleton-shimmer {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
 .animate-fade-in-up {
   animation: fadeInUp var(--transition-slow) ease-out both;
 }
@@ -220,6 +247,12 @@
 /* ─── Glassmorphism utility ─── */
 .glass-panel {
   background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

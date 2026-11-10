@@ -153,7 +153,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const isCityCustom = cityFilter !== 'all';
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
         {/* Left: Search Bar, Status Filter & Custom Popover Menus */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -166,37 +166,37 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Rechercher par nom ou email..."
-              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-150"
+              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100/70 dark:hover:bg-slate-700/60 focus:bg-white dark:focus:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-150"
             />
             {searchTerm ? (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5"
                 aria-label="Effacer la recherche"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             ) : (
-              <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-1.5 py-px rounded shadow-2xs">
+              <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-px rounded shadow-2xs">
                 /
               </kbd>
             )}
           </div>
 
           {/* Segmented Status Tabs with integrated count badges */}
-          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 text-xs font-semibold shadow-2xs shrink-0">
+          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 dark:border-slate-700 p-0.5 bg-slate-100/80 dark:bg-slate-800/80 text-xs font-semibold shadow-2xs shrink-0">
             <button
               type="button"
               onClick={() => onStatusFilterChange('all')}
               className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <span>Tous</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/70 text-slate-700 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
                 {totalCount}
               </span>
             </button>
@@ -205,12 +205,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onStatusFilterChange('active')}
               className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'active'
-                  ? 'bg-white text-emerald-700 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <span>Actifs</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono">
                 {activeCount}
               </span>
             </button>
@@ -219,12 +219,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onStatusFilterChange('inactive')}
               className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'inactive'
-                  ? 'bg-white text-slate-700 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 shadow-xs font-bold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <span>Inactifs</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-mono">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
                 {inactiveCount}
               </span>
             </button>
@@ -242,20 +242,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               aria-expanded={isSortOpen}
               className={`relative w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 shadow-2xs group active:scale-95 ${
                 isSortOpen || isSortCustom
-                  ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+                  ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 shadow-xs ring-2 ring-teal-500/20'
+                  : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 border-slate-200/90 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <ArrowUpDown className="w-4 h-4 transition-transform group-hover:scale-105" />
               {isSortCustom && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white dark:ring-slate-900" />
               )}
             </button>
 
             {/* Custom Popover Menu */}
             {isSortOpen && (
-              <div className="absolute left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3.5 py-2 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200/90 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
                   <span>Trier les fournisseurs</span>
                   {isSortCustom && (
                     <button
@@ -264,7 +264,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                         onSortChange('name-asc');
                         setIsSortOpen(false);
                       }}
-                      className="text-teal-600 hover:text-teal-800 normal-case font-semibold text-[11px]"
+                      className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 normal-case font-semibold text-[11px]"
                     >
                       Réinitialiser
                     </button>
@@ -284,17 +284,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                         }}
                         className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
                           isSelected
-                            ? 'bg-teal-50/80 text-teal-900 font-bold'
-                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                            ? 'bg-teal-50/80 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 font-bold'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white font-medium'
                         }`}
                       >
                         <div className="flex items-center space-x-2.5">
-                          <span className={isSelected ? 'text-teal-600' : 'text-slate-400'}>
+                          <span className={isSelected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}>
                             {opt.icon}
                           </span>
                           <span>{opt.label}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
                       </button>
                     );
                   })}
@@ -319,20 +319,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               aria-expanded={isCityOpen}
               className={`relative w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 shadow-2xs group active:scale-95 ${
                 isCityOpen || isCityCustom
-                  ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
-                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+                  ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 shadow-xs ring-2 ring-teal-500/20'
+                  : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 border-slate-200/90 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <MapPin className="w-4 h-4 transition-transform group-hover:scale-105" />
               {isCityCustom && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white dark:ring-slate-900" />
               )}
             </button>
 
             {/* Custom Popover Menu */}
             {isCityOpen && (
-              <div className="absolute left-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3.5 py-2 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <div className="absolute left-0 mt-2 w-60 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200/90 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
                   <span>Filtrer par ville</span>
                   {isCityCustom && (
                     <button
@@ -341,7 +341,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                         onCityFilterChange('all');
                         setIsCityOpen(false);
                       }}
-                      className="text-teal-600 hover:text-teal-800 normal-case font-semibold text-[11px]"
+                      className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 normal-case font-semibold text-[11px]"
                     >
                       Effacer
                     </button>
@@ -358,18 +358,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     }}
                     className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
                       cityFilter === 'all'
-                        ? 'bg-teal-50/80 text-teal-900 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                        ? 'bg-teal-50/80 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 font-bold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white font-medium'
                     }`}
                   >
                     <div className="flex items-center space-x-2.5">
-                      <Globe className={`w-3.5 h-3.5 ${cityFilter === 'all' ? 'text-teal-600' : 'text-slate-400'}`} />
+                      <Globe className={`w-3.5 h-3.5 ${cityFilter === 'all' ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`} />
                       <span>Toutes les villes</span>
                     </div>
-                    {cityFilter === 'all' && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                    {cityFilter === 'all' && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
                   </button>
 
-                  <div className="my-1 border-t border-slate-100" />
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
                   {/* List of detected cities */}
                   {availableCities.length > 0 ? (
@@ -385,20 +385,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                           }}
                           className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
                             isSelected
-                              ? 'bg-teal-50/80 text-teal-900 font-bold'
-                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                              ? 'bg-teal-50/80 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 font-bold'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white font-medium'
                           }`}
                         >
                           <div className="flex items-center space-x-2.5">
-                            <MapPin className={`w-3.5 h-3.5 ${isSelected ? 'text-teal-600' : 'text-slate-400'}`} />
+                            <MapPin className={`w-3.5 h-3.5 ${isSelected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`} />
                             <span>{city}</span>
                           </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
                         </button>
                       );
                     })
                   ) : (
-                    <div className="px-3.5 py-2 text-xs text-slate-400 italic">
+                    <div className="px-3.5 py-2 text-xs text-slate-400 dark:text-slate-500 italic">
                       Aucune ville répertoriée
                     </div>
                   )}
@@ -411,7 +411,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* Right: View Mode + Utilities + CTA */}
         <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0">
           {/* View mode toggle (Table / Grid) */}
-          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 shadow-2xs">
+          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 dark:border-slate-700 p-0.5 bg-slate-100/80 dark:bg-slate-800/80 shadow-2xs">
             <button
               type="button"
               onClick={() => onViewModeChange && onViewModeChange('table')}
@@ -419,8 +419,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               aria-label="Affichage Tableau"
               className={`h-full px-2.5 rounded-md transition-all duration-150 active:scale-95 ${
                 viewMode === 'table'
-                  ? 'bg-white text-teal-700 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <List className="w-4 h-4" />
@@ -432,8 +432,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               aria-label="Affichage Cartes"
               className={`h-full px-2.5 rounded-md transition-all duration-150 active:scale-95 ${
                 viewMode === 'grid'
-                  ? 'bg-white text-teal-700 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -446,9 +446,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             onClick={handleExportCSV}
             title="Exporter les fournisseurs filtrés (CSV)"
             aria-label="Exporter CSV"
-            className="h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-xs transition-all duration-150 active:scale-[0.97] flex items-center space-x-1.5 text-xs font-semibold"
+            className="h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white shadow-xs transition-all duration-150 active:scale-[0.97] flex items-center space-x-1.5 text-xs font-semibold"
           >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
 
@@ -459,9 +459,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             disabled={loading}
             title="Actualiser les données"
             aria-label="Actualiser les données"
-            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
+            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-teal-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-teal-600 dark:text-teal-400' : ''}`} />
           </button>
 
           {/* Create CTA Button */}
