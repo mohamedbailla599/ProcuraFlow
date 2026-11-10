@@ -16,6 +16,7 @@ import {
 
 export default function App() {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
+  const [allFournisseurs, setAllFournisseurs] = useState<Fournisseur[]>([]);
   const [mockStore, setMockStore] = useState<Fournisseur[]>(INITIAL_MOCK_FOURNISSEURS);
   const [loading, setLoading] = useState(false);
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean | null>(null);
@@ -70,11 +71,13 @@ export default function App() {
         filtered = filtered.filter((f) => !f.actif);
       }
       if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
+        const query = searchTerm.toLowerCase().trim();
         filtered = filtered.filter(
           (f) =>
             f.nom.toLowerCase().includes(query) ||
-            f.email.toLowerCase().includes(query)
+            f.email.toLowerCase().includes(query) ||
+            (f.telephone && f.telephone.toLowerCase().includes(query)) ||
+            (f.adresse && f.adresse.toLowerCase().includes(query))
         );
       }
       setFournisseurs(filtered);
@@ -92,12 +95,26 @@ export default function App() {
         params.includeInactive = true;
       }
 
+      const [data, fullList] = await Promise.all([
+        fournisseurApi.getFournisseurs(params),
+        fournisseurApi.getFournisseurs({ includeInactive: true }),
+      ]);
+
+      setAllFournisseurs(fullList);
+
+      let filtered = data;
       if (searchTerm.trim()) {
-        params.nom = searchTerm.trim();
+        const query = searchTerm.toLowerCase().trim();
+        filtered = filtered.filter(
+          (f) =>
+            f.nom.toLowerCase().includes(query) ||
+            f.email.toLowerCase().includes(query) ||
+            (f.telephone && f.telephone.toLowerCase().includes(query)) ||
+            (f.adresse && f.adresse.toLowerCase().includes(query))
+        );
       }
 
-      const data = await fournisseurApi.getFournisseurs(params);
-      setFournisseurs(data);
+      setFournisseurs(filtered);
       setIsBackendHealthy(true);
     } catch (err) {
       console.error('Failed to load suppliers from backend:', err);
@@ -275,7 +292,7 @@ export default function App() {
 
         {/* Stats Cards (Interactive Click-to-filter) */}
         <StatsBar
-          fournisseurs={demoMode ? mockStore : fournisseurs}
+          fournisseurs={demoMode ? mockStore : (allFournisseurs.length > 0 ? allFournisseurs : fournisseurs)}
           currentStatusFilter={statusFilter}
           onSelectStatusFilter={setStatusFilter}
         />
