@@ -9,6 +9,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { CommandesDrawer } from './components/CommandesDrawer';
 import { Toast, ToastMessage } from './components/Toast';
 import { Fournisseur, FournisseurRequest, FilterParams } from './types/fournisseur';
+import { computeSupplierRating, saveSupplierRating } from './utils/scoring';
 import {
   fournisseurApi,
   INITIAL_MOCK_FOURNISSEURS,
@@ -173,6 +174,11 @@ export default function App() {
             return a.nom.localeCompare(b.nom, 'fr');
           case 'name-desc':
             return b.nom.localeCompare(a.nom, 'fr');
+          case 'rating-desc': {
+            const scoreA = computeSupplierRating(a).score;
+            const scoreB = computeSupplierRating(b).score;
+            return scoreB - scoreA;
+          }
           case 'commands-desc':
             return (counts[b.id] || 0) - (counts[a.id] || 0);
           case 'date-desc':
@@ -331,12 +337,16 @@ export default function App() {
         showToast('success', `Fournisseur "${payload.nom}" mis à jour avec succès (Démo) !`);
       } else {
         const newId = Math.max(...mockStore.map((f) => f.id), 0) + 1;
+        if (payload.rating) {
+          saveSupplierRating(newId, payload.rating);
+        }
         const newSupplier: Fournisseur = {
           id: newId,
           nom: payload.nom,
           email: payload.email,
           telephone: payload.telephone || null,
           adresse: payload.adresse || null,
+          rating: payload.rating,
           actif: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -351,7 +361,10 @@ export default function App() {
       await fournisseurApi.updateFournisseur(fournisseurToEdit.id, payload);
       showToast('success', `Fournisseur "${payload.nom}" mis à jour avec succès !`);
     } else {
-      await fournisseurApi.createFournisseur(payload);
+      const created = await fournisseurApi.createFournisseur(payload);
+      if (payload.rating && created?.id) {
+        saveSupplierRating(created.id, payload.rating);
+      }
       showToast('success', `Fournisseur "${payload.nom}" enregistré avec succès !`);
     }
     loadFournisseurs();

@@ -10,8 +10,10 @@ import {
   RotateCcw,
   Copy,
   Check,
+  Star,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
+import { computeSupplierRating } from '../utils/scoring';
 
 interface FournisseurTableProps {
   fournisseurs: Fournisseur[];
@@ -103,11 +105,12 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
         <table className="w-full text-left border-collapse table-fixed min-w-[1020px]">
           {/* Explicit balanced column proportions for clean desktop presentation */}
           <colgroup>
-            <col className="w-[26%]" />
-            <col className="w-[23%]" />
-            <col className="w-[20%]" />
-            <col className="w-[10%]" />
+            <col className="w-[24%]" />
             <col className="w-[21%]" />
+            <col className="w-[19%]" />
+            <col className="w-[15%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
           </colgroup>
 
           <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
@@ -121,6 +124,9 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
               <th scope="col" className="px-5 py-3.5">
                 Adresse
               </th>
+              <th scope="col" className="px-4 py-3.5">
+                Évaluation
+              </th>
               <th scope="col" className="px-4 py-3.5 text-center">
                 Statut
               </th>
@@ -133,6 +139,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
           <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/80 text-sm">
             {fournisseurs.map((fournisseur, index) => {
               const initials = getInitials(fournisseur.nom);
+              const rating = computeSupplierRating(fournisseur);
 
               return (
                 <tr
@@ -242,6 +249,40 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     ) : (
                       <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Adresse non renseignée</span>
                     )}
+                  </td>
+
+                  {/* Colonne 4: Évaluation & Scoring */}
+                  <td className="px-4 py-4 align-middle">
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center space-x-1.5">
+                        <div className="flex items-center space-x-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3.5 h-3.5 ${
+                                star <= Math.round(rating.score)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-slate-200 dark:text-slate-700'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {rating.score.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${rating.badgeClass}`}
+                          title={`Taux de fiabilité estimé : ${rating.fiabilitePct}%`}
+                        >
+                          {rating.statusLabel}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                          {rating.fiabilitePct}% fiab.
+                        </span>
+                      </div>
+                    </div>
                   </td>
 
                   {/* Colonne 4: Statut (Actif / Inactif) */}

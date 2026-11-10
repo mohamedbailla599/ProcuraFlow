@@ -5,6 +5,7 @@ export interface Fournisseur {
   telephone: string | null;
   adresse: string | null;
   actif: boolean;
+  rating?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -14,6 +15,7 @@ export interface FournisseurRequest {
   email: string;
   telephone?: string | null;
   adresse?: string | null;
+  rating?: number;
 }
 
 export interface LigneCommandeSummary {

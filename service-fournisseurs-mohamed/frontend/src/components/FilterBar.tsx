@@ -17,12 +17,14 @@ import {
   MapPin,
   Globe,
   Check,
+  Star,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 
 export type SortOption =
   | 'name-asc'
   | 'name-desc'
+  | 'rating-desc'
   | 'commands-desc'
   | 'date-desc'
   | 'date-asc'
@@ -138,6 +140,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const sortOptions: { value: SortOption; label: string; icon: React.ReactNode }[] = [
     { value: 'name-asc', label: 'Nom (A → Z)', icon: <ArrowDownAZ className="w-3.5 h-3.5" /> },
     { value: 'name-desc', label: 'Nom (Z → A)', icon: <ArrowUpZA className="w-3.5 h-3.5" /> },
+    { value: 'rating-desc', label: 'Mieux notés d\'abord', icon: <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" /> },
     { value: 'commands-desc', label: 'Nb Commandes (Plus élevé)', icon: <ShoppingBag className="w-3.5 h-3.5" /> },
     { value: 'date-desc', label: "Plus récents d'abord", icon: <Clock className="w-3.5 h-3.5" /> },
     { value: 'date-asc', label: "Plus anciens d'abord", icon: <History className="w-3.5 h-3.5" /> },

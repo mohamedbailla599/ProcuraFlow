@@ -10,8 +10,10 @@ import {
   RotateCcw,
   Copy,
   Check,
+  Star,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
+import { computeSupplierRating } from '../utils/scoring';
 
 interface FournisseurCardsProps {
   fournisseurs: Fournisseur[];
@@ -88,6 +90,7 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {fournisseurs.map((fournisseur, index) => {
         const initials = getInitials(fournisseur.nom);
+        const rating = computeSupplierRating(fournisseur);
 
         return (
           <div
@@ -141,6 +144,33 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
                     <span>Inactif</span>
                   </span>
                 )}
+              </div>
+
+              {/* Evaluation & Scoring Banner */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/60 border border-slate-100/80 dark:border-slate-700/60">
+                <div className="flex items-center space-x-1.5">
+                  <div className="flex items-center space-x-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-3 h-3 ${
+                          star <= Math.round(rating.score)
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-200 dark:text-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {rating.score.toFixed(1)}
+                  </span>
+                </div>
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${rating.badgeClass}`}
+                  title={`Fiabilité opérationnelle : ${rating.fiabilitePct}%`}
+                >
+                  {rating.statusLabel}
+                </span>
               </div>
 
               {/* Details List */}
