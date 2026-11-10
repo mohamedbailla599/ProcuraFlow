@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Wifi, WifiOff, Sparkles, RefreshCw, Command } from 'lucide-react';
+import { Building2, Wifi, WifiOff, Sparkles, RefreshCw } from 'lucide-react';
 
 interface NavbarProps {
   isBackendHealthy: boolean | null;
@@ -17,102 +17,92 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCreateModal,
 }) => {
   return (
-    <header className="glass-panel sticky top-0 z-30 border-b border-slate-200/80 shadow-xs transition-all duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Brand */}
-          <div className="flex items-center space-x-3.5 group cursor-pointer">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-teal-500/25 group-hover:scale-105 group-hover:shadow-teal-500/40 transition-all duration-300">
-                <Building2 className="w-5 h-5 transition-transform duration-300 group-hover:rotate-6" />
-              </div>
-              <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  demoMode ? 'bg-amber-400' : isBackendHealthy ? 'bg-emerald-400' : 'bg-rose-400'
-                }`} />
-                <span className={`relative inline-flex rounded-full h-3 w-3 border-2 border-white ${
-                  demoMode ? 'bg-amber-500' : isBackendHealthy ? 'bg-emerald-500' : 'bg-rose-500'
-                }`} />
-              </span>
+    <header className="sticky top-0 z-30 h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs transition-all">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+        <div className="flex items-center justify-between h-full">
+          {/* Left: Brand Identity */}
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shadow-xs">
+              <Building2 className="w-4 h-4" />
             </div>
 
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-slate-900 text-lg tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 bg-clip-text text-transparent">
-                  ProcuraFlow
-                </span>
-                <span className="text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200/80 px-2 py-0.5 rounded-full shadow-2xs">
-                  Fournisseurs
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Module Mohamed Bailla • Port 8081
-              </p>
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-slate-900 text-sm tracking-tight">
+                ProcuraFlow
+              </span>
+              <span className="text-slate-300">/</span>
+              <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200/70">
+                Fournisseurs
+              </span>
+              <span className="hidden lg:inline text-xs text-slate-400 font-medium">
+                • Mohamed Bailla (:8081)
+              </span>
             </div>
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center space-x-3">
-            {/* Quick shortcut pill */}
+          {/* Right: Actions and Status */}
+          <div className="flex items-center space-x-2.5">
+            {/* Keyboard shortcut hint to create */}
             <button
               onClick={onOpenCreateModal}
-              title="Raccourci : Créer un nouveau fournisseur"
-              className="hidden md:flex items-center space-x-1.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
+              title="Créer un fournisseur (Raccourci: N)"
+              className="hidden sm:inline-flex items-center space-x-1.5 h-8 px-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-lg transition-colors"
             >
-              <Command className="w-3 h-3 text-slate-400" />
               <span>Nouveau</span>
-              <kbd className="text-[10px] bg-white text-slate-600 px-1.5 py-0.5 rounded-md border border-slate-200 font-mono shadow-2xs">
+              <kbd className="text-[10px] bg-white text-slate-500 px-1 py-0.2 rounded border border-slate-200 font-mono shadow-2xs">
                 N
               </kbd>
             </button>
 
-            {/* Backend Connectivity Status Button */}
+            {/* Health Status Indicator */}
             <button
               onClick={onRefreshHealth}
-              title="Cliquer pour tester la connectivité backend"
-              className={`group flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs ${
+              title="Tester la connexion au serveur Spring Boot"
+              className={`inline-flex items-center space-x-2 h-8 px-2.5 text-xs font-medium rounded-lg border transition-all ${
                 demoMode
-                  ? 'bg-amber-50/90 border-amber-200 text-amber-800 hover:bg-amber-100/90'
+                  ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100/70'
                   : isBackendHealthy
-                  ? 'bg-emerald-50/90 border-emerald-200 text-emerald-800 hover:bg-emerald-100/90'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/70'
                   : isBackendHealthy === false
-                  ? 'bg-rose-50/90 border-rose-200 text-rose-800 hover:bg-rose-100/90'
-                  : 'bg-slate-50 border-slate-200 text-slate-600'
+                  ? 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100/70'
+                  : 'bg-slate-50 text-slate-600 border-slate-200'
               }`}
             >
               {demoMode ? (
                 <>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                   <span>Mode Démo</span>
                 </>
               ) : isBackendHealthy ? (
                 <>
-                  <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>API En ligne (:8081)</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="hidden sm:inline">API Connectée</span>
+                  <span className="sm:hidden">En ligne</span>
                 </>
               ) : isBackendHealthy === false ? (
                 <>
                   <WifiOff className="w-3.5 h-3.5 text-rose-600" />
-                  <span>API Déconnectée</span>
+                  <span className="hidden sm:inline">API Déconnectée</span>
+                  <span className="sm:hidden">Hors-ligne</span>
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-400" />
-                  <span>Vérification...</span>
+                  <RefreshCw className="w-3 h-3 text-slate-400 animate-spin" />
+                  <span>Connexion...</span>
                 </>
               )}
             </button>
 
-            {/* Mode switch pill */}
+            {/* Demo Mode Toggle */}
             <button
               onClick={onToggleDemoMode}
-              className={`text-xs font-semibold px-3.5 py-1.5 rounded-xl border transition-all duration-200 shadow-xs ${
+              className={`h-8 px-3 text-xs font-semibold rounded-lg border transition-all shadow-2xs ${
                 demoMode
-                  ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-transparent hover:shadow-teal-500/25 hover:shadow-md hover:scale-[1.02]'
-                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 hover:border-slate-400'
+                  ? 'bg-teal-600 text-white border-teal-600 hover:bg-teal-700'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400'
               }`}
             >
-              {demoMode ? 'Passer en Mode Réel' : 'Activer Mode Démo'}
+              {demoMode ? 'Mode Réel' : 'Mode Démo'}
             </button>
           </div>
         </div>

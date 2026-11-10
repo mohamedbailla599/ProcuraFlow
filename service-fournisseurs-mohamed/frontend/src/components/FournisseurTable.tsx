@@ -8,8 +8,6 @@ import {
   Edit2,
   Power,
   RotateCcw,
-  CheckCircle2,
-  XCircle,
   Copy,
   Check,
 } from 'lucide-react';
@@ -32,25 +30,33 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const copyToClipboard = (text: string, key: string) => {
+  const copyToClipboard = (text: string, key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+    setTimeout(() => setCopiedKey(null), 1800);
   };
 
+  // Loading Skeleton State
   if (loading && fournisseurs.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-8 shadow-xs">
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50/60">
+          <div className="h-4 w-40 rounded-md skeleton-shimmer" />
+        </div>
+        <div className="divide-y divide-slate-100">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center space-x-4 p-3">
-              <div className="w-10 h-10 rounded-xl skeleton-shimmer" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-1/4 rounded-md skeleton-shimmer" />
-                <div className="h-3 w-1/6 rounded-md skeleton-shimmer" />
+            <div key={i} className="flex items-center justify-between p-4 space-x-4">
+              <div className="flex items-center space-x-3 w-1/3">
+                <div className="w-8 h-8 rounded-lg skeleton-shimmer shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-3/4 rounded-md skeleton-shimmer" />
+                  <div className="h-3 w-1/3 rounded-md skeleton-shimmer" />
+                </div>
               </div>
+              <div className="h-4 w-1/4 rounded-md skeleton-shimmer" />
               <div className="h-4 w-1/5 rounded-md skeleton-shimmer" />
-              <div className="h-4 w-1/6 rounded-md skeleton-shimmer" />
+              <div className="h-6 w-16 rounded-full skeleton-shimmer" />
               <div className="h-8 w-24 rounded-lg skeleton-shimmer" />
             </div>
           ))}
@@ -59,94 +65,122 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
     );
   }
 
+  // Empty State
   if (fournisseurs.length === 0) {
     return (
-      <div className="glass-panel rounded-2xl border border-slate-200/80 p-12 text-center shadow-xs">
-        <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-        <h3 className="text-base font-semibold text-slate-900 mb-1">Aucun fournisseur trouvé</h3>
-        <p className="text-sm text-slate-500 max-w-sm mx-auto">
-          Aucun fournisseur ne correspond aux critères de recherche actuels.
+      <div className="bg-white rounded-xl border border-slate-200/90 p-12 text-center shadow-2xs">
+        <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+          <Building2 className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 mb-1">Aucun fournisseur trouvé</h3>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          Aucun fournisseur ne correspond aux critères de filtre ou de recherche sélectionnés.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden transition-all">
+    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-          <thead className="bg-slate-50/90 text-[11px] uppercase font-bold text-slate-500 tracking-wider">
+        <table className="w-full text-left border-collapse table-auto lg:table-fixed">
+          {/* Explicit balanced column proportions for desktop */}
+          <colgroup className="hidden lg:table-column-group">
+            <col className="w-[30%]" />
+            <col className="w-[26%]" />
+            <col className="w-[22%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+          </colgroup>
+
+          <thead className="bg-slate-50 border-b border-slate-200/90 text-[11px] uppercase font-bold text-slate-500 tracking-wider">
             <tr>
-              <th scope="col" className="px-6 py-4">Fournisseur</th>
-              <th scope="col" className="px-6 py-4">Coordonnées</th>
-              <th scope="col" className="px-6 py-4">Adresse</th>
-              <th scope="col" className="px-6 py-4 text-center">Statut</th>
-              <th scope="col" className="px-6 py-4 text-right">Actions</th>
+              <th scope="col" className="px-5 py-3">Fournisseur</th>
+              <th scope="col" className="px-5 py-3">Coordonnées</th>
+              <th scope="col" className="px-5 py-3">Adresse</th>
+              <th scope="col" className="px-5 py-3 text-center">Statut</th>
+              <th scope="col" className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+
+          <tbody className="divide-y divide-slate-100 text-xs">
             {fournisseurs.map((fournisseur) => {
-              const initials = fournisseur.nom
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((w) => w[0].toUpperCase())
-                .join('') || 'FO';
+              const initials =
+                fournisseur.nom
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((w) => w[0].toUpperCase())
+                  .join('') || 'FO';
 
               return (
                 <tr
                   key={fournisseur.id}
-                  className="hover:bg-teal-50/30 transition-colors group"
+                  className="hover:bg-slate-50/70 transition-colors group"
                 >
-                  {/* Nom & ID */}
-                  <td className="px-6 py-4.5 whitespace-nowrap">
-                    <div className="flex items-center space-x-3.5">
+                  {/* Colonne 1: Fournisseur (Avatar + Nom + ID) */}
+                  <td className="px-5 py-3.5 align-middle">
+                    <div className="flex items-center space-x-3 min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-inner transition-transform group-hover:scale-105 ${
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 select-none ${
                           fournisseur.actif
-                            ? 'bg-gradient-to-tr from-teal-50 to-emerald-100 text-teal-800 border border-teal-200/80'
+                            ? 'bg-teal-50 text-teal-700 border border-teal-200/70'
                             : 'bg-slate-100 text-slate-500 border border-slate-200'
                         }`}
                       >
                         {initials}
                       </div>
-                      <div>
-                        <div className="font-bold text-slate-900 group-hover:text-teal-900 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-bold text-slate-900 group-hover:text-teal-900 transition-colors truncate"
+                          title={fournisseur.nom}
+                        >
                           {fournisseur.nom}
                         </div>
-                        <span className="text-[11px] text-slate-400 font-mono">ID: #{fournisseur.id}</span>
+                        <div className="text-[11px] font-mono text-slate-400">
+                          ID: #{fournisseur.id}
+                        </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Email & Téléphone */}
-                  <td className="px-6 py-4.5 whitespace-nowrap">
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center space-x-1.5 text-xs text-slate-700">
+                  {/* Colonne 2: Coordonnées (Email + Téléphone avec copie) */}
+                  <td className="px-5 py-3.5 align-middle">
+                    <div className="flex flex-col space-y-1 min-w-0">
+                      {/* Email */}
+                      <div className="flex items-center space-x-1.5 text-slate-700 min-w-0">
                         <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-medium">{fournisseur.email}</span>
+                        <span className="truncate" title={fournisseur.email}>
+                          {fournisseur.email}
+                        </span>
                         <button
-                          onClick={() => copyToClipboard(fournisseur.email, `table-email-${fournisseur.id}`)}
-                          title="Copier l'email"
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                          type="button"
+                          onClick={(e) => copyToClipboard(fournisseur.email, `mail-${fournisseur.id}`, e)}
+                          title="Copier l'adresse e-mail"
+                          className="text-slate-400 hover:text-slate-700 transition-colors shrink-0 p-0.5"
+                          aria-label="Copier l'adresse e-mail"
                         >
-                          {copiedKey === `table-email-${fournisseur.id}` ? (
+                          {copiedKey === `mail-${fournisseur.id}` ? (
                             <Check className="w-3 h-3 text-emerald-600" />
                           ) : (
                             <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
                         </button>
                       </div>
+
+                      {/* Téléphone */}
                       {fournisseur.telephone ? (
-                        <div className="flex items-center space-x-1.5 text-xs text-slate-500">
+                        <div className="flex items-center space-x-1.5 text-slate-500 min-w-0">
                           <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>{fournisseur.telephone}</span>
+                          <span className="truncate">{fournisseur.telephone}</span>
                           <button
-                            onClick={() => copyToClipboard(fournisseur.telephone!, `table-phone-${fournisseur.id}`)}
-                            title="Copier le téléphone"
-                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            type="button"
+                            onClick={(e) => copyToClipboard(fournisseur.telephone!, `phone-${fournisseur.id}`, e)}
+                            title="Copier le numéro de téléphone"
+                            className="text-slate-400 hover:text-slate-700 transition-colors shrink-0 p-0.5"
+                            aria-label="Copier le numéro de téléphone"
                           >
-                            {copiedKey === `table-phone-${fournisseur.id}` ? (
+                            {copiedKey === `phone-${fournisseur.id}` ? (
                               <Check className="w-3 h-3 text-emerald-600" />
                             ) : (
                               <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -154,78 +188,86 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Non renseigné</span>
+                        <span className="text-[11px] text-slate-400 italic">Téléphone non renseigné</span>
                       )}
                     </div>
                   </td>
 
-                  {/* Adresse */}
-                  <td className="px-6 py-4.5">
+                  {/* Colonne 3: Adresse */}
+                  <td className="px-5 py-3.5 align-middle">
                     {fournisseur.adresse ? (
-                      <div className="flex items-start space-x-1.5 text-xs text-slate-600 max-w-xs truncate">
+                      <div className="flex items-start space-x-1.5 text-slate-600 min-w-0">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                         <span className="truncate" title={fournisseur.adresse}>
                           {fournisseur.adresse}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400 italic">Non renseignée</span>
+                      <span className="text-[11px] text-slate-400 italic">Adresse non renseignée</span>
                     )}
                   </td>
 
-                  {/* Statut Badge */}
-                  <td className="px-6 py-4.5 whitespace-nowrap text-center">
+                  {/* Colonne 4: Statut (Actif / Inactif) */}
+                  <td className="px-5 py-3.5 align-middle text-center whitespace-nowrap">
                     {fournisseur.actif ? (
-                      <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span>Actif</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 shadow-2xs">
-                        <XCircle className="w-3 h-3 text-slate-400" />
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                         <span>Inactif</span>
                       </span>
                     )}
                   </td>
 
-                  {/* Actions */}
-                  <td className="px-6 py-4.5 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end space-x-1.5">
-                      {/* Bouton Voir commandes */}
+                  {/* Colonne 5: Actions */}
+                  <td className="px-5 py-3.5 align-middle text-right whitespace-nowrap">
+                    <div className="inline-flex items-center justify-end space-x-1">
+                      {/* Action Voir Commandes */}
                       <button
+                        type="button"
                         onClick={() => onViewCommandes(fournisseur)}
-                        title="Consulter les commandes"
-                        className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 transition-colors shadow-2xs"
+                        title="Consulter les commandes de ce fournisseur"
+                        aria-label="Voir les commandes"
+                        className="inline-flex items-center space-x-1 h-7.5 px-2 rounded-lg text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/70 transition-colors"
                       >
                         <ShoppingBag className="w-3.5 h-3.5 text-teal-600" />
                         <span>Commandes</span>
                       </button>
 
-                      {/* Bouton Modifier */}
+                      {/* Action Modifier */}
                       <button
+                        type="button"
                         onClick={() => onEdit(fournisseur)}
-                        title="Modifier les coordonnées"
-                        className="p-1.5 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors"
+                        title="Modifier la fiche fournisseur"
+                        aria-label="Modifier le fournisseur"
+                        className="w-7.5 h-7.5 flex items-center justify-center rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Bouton Activer / Désactiver */}
+                      {/* Action Activer / Désactiver */}
                       {fournisseur.actif ? (
                         <button
+                          type="button"
                           onClick={() => onToggleStatus(fournisseur)}
-                          title="Désactiver le fournisseur"
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                          title="Désactiver ce fournisseur"
+                          aria-label="Désactiver le fournisseur"
+                          className="w-7.5 h-7.5 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
                         >
-                          <Power className="w-4 h-4" />
+                          <Power className="w-3.5 h-3.5" />
                         </button>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => onToggleStatus(fournisseur)}
-                          title="Réactiver le fournisseur"
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors"
+                          title="Réactiver ce fournisseur"
+                          aria-label="Réactiver le fournisseur"
+                          className="w-7.5 h-7.5 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-colors"
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

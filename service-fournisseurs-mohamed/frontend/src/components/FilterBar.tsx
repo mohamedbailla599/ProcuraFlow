@@ -7,7 +7,6 @@ import {
   LayoutGrid,
   List,
   Download,
-  Filter,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 
@@ -43,7 +42,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   // Keyboard shortcut '/' to focus search input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -65,7 +68,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       f.actif ? 'Actif' : 'Inactif',
       f.createdAt,
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -75,133 +80,149 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     document.body.removeChild(link);
   };
 
-  const countLabel = `${totalFiltered} ${totalFiltered > 1 ? 'résultats' : 'résultat'}`;
+  const countBadge = `${totalFiltered} ${totalFiltered > 1 ? 'fournisseurs' : 'fournisseur'}`;
 
   return (
-    <div className="glass-panel rounded-2xl border border-slate-200/80 p-4 shadow-xs mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
-      {/* Left: Search input & Status Tabs */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-        {/* Search input with focus glow */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Rechercher par nom ou email... (appuyer sur /)"
-            className="w-full pl-10 pr-9 py-2 text-sm bg-white border border-slate-200/90 rounded-xl shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-teal-500/25 focus:border-teal-500 transition-all placeholder:text-slate-400"
-          />
-          {searchTerm ? (
+    <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs mb-5 transition-all">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Left: Search Bar & Status Filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+          {/* Search Input */}
+          <div className="relative flex-1 sm:max-w-xs md:max-w-sm">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Rechercher par nom ou email..."
+              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+            />
+            {searchTerm ? (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Effacer la recherche"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-1 py-0.2 rounded shadow-2xs">
+                /
+              </kbd>
+            )}
+          </div>
+
+          {/* Segmented Status Tabs */}
+          <div className="inline-flex h-9 rounded-lg border border-slate-200 p-0.5 bg-slate-100/80 text-xs font-semibold self-start sm:self-auto">
             <button
-              onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              type="button"
+              onClick={() => onStatusFilterChange('all')}
+              className={`h-full px-3 rounded-md transition-all ${
+                statusFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <X className="w-4 h-4" />
+              Tous
             </button>
-          ) : (
-            <span className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">
-              /
-            </span>
-          )}
+            <button
+              type="button"
+              onClick={() => onStatusFilterChange('active')}
+              className={`h-full px-3 rounded-md transition-all ${
+                statusFilter === 'active'
+                  ? 'bg-white text-emerald-700 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Actifs
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusFilterChange('inactive')}
+              className={`h-full px-3 rounded-md transition-all ${
+                statusFilter === 'inactive'
+                  ? 'bg-white text-slate-700 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Inactifs
+            </button>
+          </div>
+
+          {/* Count pill */}
+          <span className="hidden xl:inline-flex items-center text-xs font-medium text-slate-500 bg-slate-100 px-2.5 h-9 rounded-lg border border-slate-200">
+            <span>{countBadge}</span>
+          </span>
         </div>
 
-        {/* Status filter tabs */}
-        <div className="inline-flex rounded-xl border border-slate-200/90 p-1 bg-slate-100/70 text-xs font-semibold shadow-inner">
-          <button
-            onClick={() => onStatusFilterChange('active')}
-            className={`px-3 py-1.5 rounded-lg transition-all duration-200 ${
-              statusFilter === 'active'
-                ? 'bg-white text-emerald-700 shadow-xs scale-100 font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Actifs
-          </button>
-          <button
-            onClick={() => onStatusFilterChange('inactive')}
-            className={`px-3 py-1.5 rounded-lg transition-all duration-200 ${
-              statusFilter === 'inactive'
-                ? 'bg-white text-rose-700 shadow-xs scale-100 font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Inactifs
-          </button>
-          <button
-            onClick={() => onStatusFilterChange('all')}
-            className={`px-3 py-1.5 rounded-lg transition-all duration-200 ${
-              statusFilter === 'all'
-                ? 'bg-white text-teal-700 shadow-xs scale-100 font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Tous
-          </button>
-        </div>
+        {/* Right: View Mode + Utilities + CTA */}
+        <div className="flex items-center justify-between sm:justify-end space-x-2">
+          {/* View mode toggle (Table / Grid) */}
+          <div className="inline-flex h-9 rounded-lg border border-slate-200 p-0.5 bg-slate-100/80">
+            <button
+              type="button"
+              onClick={() => onViewModeChange && onViewModeChange('table')}
+              title="Affichage Tableau"
+              aria-label="Affichage Tableau"
+              className={`h-full px-2 rounded-md transition-all ${
+                viewMode === 'table'
+                  ? 'bg-white text-teal-700 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange && onViewModeChange('grid')}
+              title="Affichage Cartes"
+              aria-label="Affichage Cartes"
+              className={`h-full px-2 rounded-md transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-white text-teal-700 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
 
-        {/* Total found badge */}
-        <span className="hidden lg:flex items-center text-xs font-medium text-slate-500 bg-slate-100/70 border border-slate-200/70 px-2.5 py-1 rounded-lg">
-          <Filter className="w-3 h-3 text-slate-400 mr-1.5" />
-          <span>{countLabel}</span>
-        </span>
-      </div>
-
-      {/* Right: View Mode Toggle + Export + Create Button */}
-      <div className="flex items-center space-x-2">
-        {/* View Switcher (Table vs Grid) */}
-        <div className="inline-flex rounded-xl border border-slate-200/90 p-1 bg-slate-100/70 shadow-inner">
+          {/* Export CSV button */}
           <button
-            onClick={() => onViewModeChange && onViewModeChange('table')}
-            title="Vue Tableau"
-            className={`p-1.5 rounded-lg transition-all ${
-              viewMode === 'table'
-                ? 'bg-white text-teal-700 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+            type="button"
+            onClick={handleExportCSV}
+            title="Exporter les fournisseurs filtrés (CSV)"
+            aria-label="Exporter CSV"
+            className="h-9 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors flex items-center space-x-1.5 text-xs font-medium"
           >
-            <List className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Export CSV</span>
           </button>
+
+          {/* Refresh button */}
           <button
-            onClick={() => onViewModeChange && onViewModeChange('grid')}
-            title="Vue Cartes"
-            className={`p-1.5 rounded-lg transition-all ${
-              viewMode === 'grid'
-                ? 'bg-white text-teal-700 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            title="Actualiser les données"
+            aria-label="Actualiser les données"
+            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors disabled:opacity-50"
           >
-            <LayoutGrid className="w-4 h-4" />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-teal-600' : ''}`} />
+          </button>
+
+          {/* Create CTA Button */}
+          <button
+            type="button"
+            onClick={onOpenCreateModal}
+            className="h-9 px-3.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Nouveau Fournisseur</span>
           </button>
         </div>
-
-        {/* Export CSV button */}
-        <button
-          onClick={handleExportCSV}
-          title="Exporter la liste au format CSV"
-          className="p-2 border border-slate-200/90 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors"
-        >
-          <Download className="w-4 h-4" />
-        </button>
-
-        {/* Refresh button */}
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          title="Actualiser la liste"
-          className="p-2 border border-slate-200/90 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-teal-600' : ''}`} />
-        </button>
-
-        {/* Create Primary Button */}
-        <button
-          onClick={onOpenCreateModal}
-          className="flex items-center space-x-2 bg-gradient-to-r from-teal-600 via-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-md shadow-teal-600/20 hover:shadow-teal-600/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nouveau Fournisseur</span>
-        </button>
       </div>
     </div>
   );
