@@ -9,7 +9,6 @@ import {
   Download,
   ArrowUpDown,
   MapPin,
-  ChevronDown,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 
@@ -105,13 +104,35 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     document.body.removeChild(link);
   };
 
+  const getSortTitle = (sort: SortOption): string => {
+    switch (sort) {
+      case 'name-asc':
+        return 'Tri actif : Nom (A → Z)';
+      case 'name-desc':
+        return 'Tri actif : Nom (Z → A)';
+      case 'commands-desc':
+        return 'Tri actif : Nb Commandes (Plus élevé)';
+      case 'date-desc':
+        return 'Tri actif : Plus récents';
+      case 'date-asc':
+        return 'Tri actif : Plus anciens';
+      case 'id-asc':
+        return 'Tri actif : ID (Croissant)';
+      default:
+        return 'Trier la liste';
+    }
+  };
+
+  const isSortCustom = sortBy !== 'name-asc';
+  const isCityCustom = cityFilter !== 'all';
+
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-        {/* Left: Search Bar, Status Filter & Sorting / City Selectors */}
-        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+        {/* Left: Search Bar, Status Filter & Compact Icon Selectors */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Search Input */}
-          <div className="relative min-w-[220px] flex-1 sm:max-w-xs md:max-w-sm lg:max-w-md">
+          <div className="relative flex-1 min-w-[180px] max-w-xs md:max-w-sm lg:max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               ref={searchInputRef}
@@ -142,7 +163,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onStatusFilterChange('all')}
-              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'all'
                   ? 'bg-white text-slate-900 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
@@ -156,7 +177,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onStatusFilterChange('active')}
-              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'active'
                   ? 'bg-white text-emerald-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
@@ -170,7 +191,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onStatusFilterChange('inactive')}
-              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'inactive'
                   ? 'bg-white text-slate-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
@@ -183,37 +204,56 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
           </div>
 
-          {/* 1. Sorting Selector with Icon */}
-          <div className="relative inline-flex items-center shrink-0">
-            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <ArrowUpDown className="w-3.5 h-3.5 text-teal-600" />
-            </div>
+          {/* 1. Icon-only Sorting Dropdown */}
+          <div
+            className={`relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 cursor-pointer transition-all duration-150 shadow-2xs group ${
+              isSortCustom
+                ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+            }`}
+            title={getSortTitle(sortBy)}
+          >
+            <ArrowUpDown className="w-4 h-4 pointer-events-none group-hover:scale-105 transition-transform" />
+            {isSortCustom && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+            )}
             <select
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value as SortOption)}
-              className="h-9 pl-8 pr-7 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer appearance-none shadow-2xs"
-              title="Trier la liste des fournisseurs"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
+              aria-label={getSortTitle(sortBy)}
             >
               <option value="name-asc">Nom (A → Z)</option>
               <option value="name-desc">Nom (Z → A)</option>
-              <option value="commands-desc">Nb Commandes ↓</option>
-              <option value="date-desc">Plus récents</option>
-              <option value="date-asc">Plus anciens</option>
+              <option value="commands-desc">Nb Commandes (Plus élevé)</option>
+              <option value="date-desc">Plus récents d'abord</option>
+              <option value="date-asc">Plus anciens d'abord</option>
               <option value="id-asc">ID (Croissant)</option>
             </select>
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 pointer-events-none" />
           </div>
 
-          {/* 2. City Filter Selector with Icon */}
-          <div className="relative inline-flex items-center shrink-0">
-            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <MapPin className="w-3.5 h-3.5 text-teal-600" />
-            </div>
+          {/* 2. Icon-only City Filter Dropdown */}
+          <div
+            className={`relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 cursor-pointer transition-all duration-150 shadow-2xs group ${
+              isCityCustom
+                ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
+                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+            }`}
+            title={
+              isCityCustom
+                ? `Ville filtrée : ${cityFilter} (cliquer pour modifier)`
+                : 'Filtrer par ville : Toutes les villes'
+            }
+          >
+            <MapPin className="w-4 h-4 pointer-events-none group-hover:scale-105 transition-transform" />
+            {isCityCustom && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+            )}
             <select
               value={cityFilter}
               onChange={(e) => onCityFilterChange(e.target.value)}
-              className="h-9 pl-8 pr-7 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer appearance-none shadow-2xs"
-              title="Filtrer par ville"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
+              aria-label="Filtrer par ville"
             >
               <option value="all">Toutes les villes</option>
               {availableCities.map((city) => (
@@ -222,12 +262,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 </option>
               ))}
             </select>
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 pointer-events-none" />
           </div>
         </div>
 
         {/* Right: View Mode + Utilities + CTA */}
-        <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0 pt-2 xl:pt-0">
+        <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0">
           {/* View mode toggle (Table / Grid) */}
           <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 shadow-2xs">
             <button
