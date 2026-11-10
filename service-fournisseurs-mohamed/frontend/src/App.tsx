@@ -5,6 +5,7 @@ import { FilterBar } from './components/FilterBar';
 import { FournisseurTable } from './components/FournisseurTable';
 import { FournisseurCards } from './components/FournisseurCards';
 import { FournisseurModal } from './components/FournisseurModal';
+import { ConfirmModal } from './components/ConfirmModal';
 import { CommandesDrawer } from './components/CommandesDrawer';
 import { Toast, ToastMessage } from './components/Toast';
 import { Fournisseur, FournisseurRequest, FilterParams } from './types/fournisseur';
@@ -32,6 +33,13 @@ export default function App() {
   const [fournisseurToEdit, setFournisseurToEdit] = useState<Fournisseur | null>(null);
   const [selectedFournisseur, setSelectedFournisseur] = useState<Fournisseur | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    fournisseur: Fournisseur | null;
+  }>({
+    isOpen: false,
+    fournisseur: null,
+  });
 
   // Notifications
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -174,11 +182,18 @@ export default function App() {
     loadFournisseurs();
   };
 
-  // Handle Deactivate / Reactivate
-  const handleToggleStatus = async (fournisseur: Fournisseur) => {
-    const actionName = fournisseur.actif ? 'désactiver' : 'réactiver';
-    const confirmMessage = `Êtes-vous sûr de vouloir ${actionName} le fournisseur "${fournisseur.nom}" ?`;
-    if (!window.confirm(confirmMessage)) return;
+  // Handle Deactivate / Reactivate with Custom Modal
+  const handleToggleStatus = (fournisseur: Fournisseur) => {
+    setConfirmModalConfig({
+      isOpen: true,
+      fournisseur,
+    });
+  };
+
+  const handleConfirmToggleStatus = async () => {
+    const fournisseur = confirmModalConfig.fournisseur;
+    if (!fournisseur) return;
+    setConfirmModalConfig({ isOpen: false, fournisseur: null });
 
     if (demoMode) {
       const updated = mockStore.map((f) =>
@@ -189,7 +204,7 @@ export default function App() {
       setMockStore(updated);
       showToast(
         'success',
-        `Fournisseur ${fournisseur.nom} ${fournisseur.actif ? 'désactivé' : 'réactivé'} avec succès (Démo) !`
+        `Fournisseur "${fournisseur.nom}" ${fournisseur.actif ? 'désactivé' : 'réactivé'} avec succès (Démo) !`
       );
       return;
     }
@@ -306,6 +321,31 @@ export default function App() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSaveFournisseur}
         fournisseurToEdit={fournisseurToEdit}
+      />
+
+      {/* Confirmation Modal (Activate / Deactivate) */}
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={
+          confirmModalConfig.fournisseur?.actif
+            ? 'Désactiver le fournisseur'
+            : 'Réactiver le fournisseur'
+        }
+        message={
+          confirmModalConfig.fournisseur?.actif
+            ? 'Êtes-vous sûr de vouloir désactiver ce fournisseur ? Ses coordonnées et l’historique de ses commandes seront intégralement conservés.'
+            : 'Êtes-vous sûr de vouloir réactiver ce fournisseur ? Il sera de nouveau éligible et disponible pour l’émission de bons de commande.'
+        }
+        supplierName={confirmModalConfig.fournisseur?.nom}
+        variant={confirmModalConfig.fournisseur?.actif ? 'danger' : 'success'}
+        confirmLabel={
+          confirmModalConfig.fournisseur?.actif
+            ? 'Désactiver le fournisseur'
+            : 'Réactiver le fournisseur'
+        }
+        cancelLabel="Conserver l'état actuel"
+        onConfirm={handleConfirmToggleStatus}
+        onClose={() => setConfirmModalConfig({ isOpen: false, fournisseur: null })}
       />
 
       {/* Drawer Commandes History */}
