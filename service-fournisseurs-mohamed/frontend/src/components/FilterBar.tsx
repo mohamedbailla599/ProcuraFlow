@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -8,7 +8,15 @@ import {
   List,
   Download,
   ArrowUpDown,
+  ArrowDownAZ,
+  ArrowUpZA,
+  ShoppingBag,
+  Clock,
+  History,
+  Hash,
   MapPin,
+  Globe,
+  Check,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 
@@ -62,10 +70,28 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   fournisseursToExport,
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isCityOpen, setIsCityOpen] = useState(false);
 
-  // Keyboard shortcut '/' to focus search input
+  const sortContainerRef = useRef<HTMLDivElement>(null);
+  const cityContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close custom dropdowns on click outside or Escape
   useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortContainerRef.current && !sortContainerRef.current.contains(e.target as Node)) {
+        setIsSortOpen(false);
+      }
+      if (cityContainerRef.current && !cityContainerRef.current.contains(e.target as Node)) {
+        setIsCityOpen(false);
+      }
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsSortOpen(false);
+        setIsCityOpen(false);
+      }
       if (
         e.key === '/' &&
         document.activeElement?.tagName !== 'INPUT' &&
@@ -75,8 +101,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         searchInputRef.current?.focus();
       }
     };
+
+    document.addEventListener('mousedown', handleClickOutside);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   // Export to CSV helper
@@ -104,23 +135,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     document.body.removeChild(link);
   };
 
+  const sortOptions: { value: SortOption; label: string; icon: React.ReactNode }[] = [
+    { value: 'name-asc', label: 'Nom (A → Z)', icon: <ArrowDownAZ className="w-3.5 h-3.5" /> },
+    { value: 'name-desc', label: 'Nom (Z → A)', icon: <ArrowUpZA className="w-3.5 h-3.5" /> },
+    { value: 'commands-desc', label: 'Nb Commandes (Plus élevé)', icon: <ShoppingBag className="w-3.5 h-3.5" /> },
+    { value: 'date-desc', label: "Plus récents d'abord", icon: <Clock className="w-3.5 h-3.5" /> },
+    { value: 'date-asc', label: "Plus anciens d'abord", icon: <History className="w-3.5 h-3.5" /> },
+    { value: 'id-asc', label: 'ID (Croissant)', icon: <Hash className="w-3.5 h-3.5" /> },
+  ];
+
   const getSortTitle = (sort: SortOption): string => {
-    switch (sort) {
-      case 'name-asc':
-        return 'Tri actif : Nom (A → Z)';
-      case 'name-desc':
-        return 'Tri actif : Nom (Z → A)';
-      case 'commands-desc':
-        return 'Tri actif : Nb Commandes (Plus élevé)';
-      case 'date-desc':
-        return 'Tri actif : Plus récents';
-      case 'date-asc':
-        return 'Tri actif : Plus anciens';
-      case 'id-asc':
-        return 'Tri actif : ID (Croissant)';
-      default:
-        return 'Trier la liste';
-    }
+    const match = sortOptions.find((o) => o.value === sort);
+    return match ? `Tri : ${match.label}` : 'Trier la liste';
   };
 
   const isSortCustom = sortBy !== 'name-asc';
@@ -129,7 +155,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-        {/* Left: Search Bar, Status Filter & Compact Icon Selectors */}
+        {/* Left: Search Bar, Status Filter & Custom Popover Menus */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[180px] max-w-xs md:max-w-sm lg:max-w-md">
@@ -204,64 +230,181 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </button>
           </div>
 
-          {/* 1. Icon-only Sorting Dropdown */}
-          <div
-            className={`relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 cursor-pointer transition-all duration-150 shadow-2xs group ${
-              isSortCustom
-                ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
-                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
-            }`}
-            title={getSortTitle(sortBy)}
-          >
-            <ArrowUpDown className="w-4 h-4 pointer-events-none group-hover:scale-105 transition-transform" />
-            {isSortCustom && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
-            )}
-            <select
-              value={sortBy}
-              onChange={(e) => onSortChange(e.target.value as SortOption)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
-              aria-label={getSortTitle(sortBy)}
+          {/* 1. Custom Popover: Sorting */}
+          <div ref={sortContainerRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSortOpen((prev) => !prev);
+                setIsCityOpen(false);
+              }}
+              title={getSortTitle(sortBy)}
+              aria-expanded={isSortOpen}
+              className={`relative w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 shadow-2xs group active:scale-95 ${
+                isSortOpen || isSortCustom
+                  ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <option value="name-asc">Nom (A → Z)</option>
-              <option value="name-desc">Nom (Z → A)</option>
-              <option value="commands-desc">Nb Commandes (Plus élevé)</option>
-              <option value="date-desc">Plus récents d'abord</option>
-              <option value="date-asc">Plus anciens d'abord</option>
-              <option value="id-asc">ID (Croissant)</option>
-            </select>
+              <ArrowUpDown className="w-4 h-4 transition-transform group-hover:scale-105" />
+              {isSortCustom && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+              )}
+            </button>
+
+            {/* Custom Popover Menu */}
+            {isSortOpen && (
+              <div className="absolute left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-2 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Trier les fournisseurs</span>
+                  {isSortCustom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSortChange('name-asc');
+                        setIsSortOpen(false);
+                      }}
+                      className="text-teal-600 hover:text-teal-800 normal-case font-semibold text-[11px]"
+                    >
+                      Réinitialiser
+                    </button>
+                  )}
+                </div>
+
+                <div className="py-1">
+                  {sortOptions.map((opt) => {
+                    const isSelected = sortBy === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          onSortChange(opt.value);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
+                          isSelected
+                            ? 'bg-teal-50/80 text-teal-900 font-bold'
+                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <span className={isSelected ? 'text-teal-600' : 'text-slate-400'}>
+                            {opt.icon}
+                          </span>
+                          <span>{opt.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 2. Icon-only City Filter Dropdown */}
-          <div
-            className={`relative w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 cursor-pointer transition-all duration-150 shadow-2xs group ${
-              isCityCustom
-                ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
-                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
-            }`}
-            title={
-              isCityCustom
-                ? `Ville filtrée : ${cityFilter} (cliquer pour modifier)`
-                : 'Filtrer par ville : Toutes les villes'
-            }
-          >
-            <MapPin className="w-4 h-4 pointer-events-none group-hover:scale-105 transition-transform" />
-            {isCityCustom && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
-            )}
-            <select
-              value={cityFilter}
-              onChange={(e) => onCityFilterChange(e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
-              aria-label="Filtrer par ville"
+          {/* 2. Custom Popover: City Filter */}
+          <div ref={cityContainerRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCityOpen((prev) => !prev);
+                setIsSortOpen(false);
+              }}
+              title={
+                isCityCustom
+                  ? `Ville filtrée : ${cityFilter} (cliquer pour modifier)`
+                  : 'Filtrer par ville : Toutes les villes'
+              }
+              aria-expanded={isCityOpen}
+              className={`relative w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 shadow-2xs group active:scale-95 ${
+                isCityOpen || isCityCustom
+                  ? 'bg-teal-50 border-teal-300 text-teal-700 shadow-xs ring-2 ring-teal-500/20'
+                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200/90 text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <option value="all">Toutes les villes</option>
-              {availableCities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
+              <MapPin className="w-4 h-4 transition-transform group-hover:scale-105" />
+              {isCityCustom && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-teal-600 ring-2 ring-white" />
+              )}
+            </button>
+
+            {/* Custom Popover Menu */}
+            {isCityOpen && (
+              <div className="absolute left-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-2 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Filtrer par ville</span>
+                  {isCityCustom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCityFilterChange('all');
+                        setIsCityOpen(false);
+                      }}
+                      className="text-teal-600 hover:text-teal-800 normal-case font-semibold text-[11px]"
+                    >
+                      Effacer
+                    </button>
+                  )}
+                </div>
+
+                <div className="py-1 max-h-60 overflow-y-auto">
+                  {/* Option: Toutes les villes */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCityFilterChange('all');
+                      setIsCityOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
+                      cityFilter === 'all'
+                        ? 'bg-teal-50/80 text-teal-900 font-bold'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Globe className={`w-3.5 h-3.5 ${cityFilter === 'all' ? 'text-teal-600' : 'text-slate-400'}`} />
+                      <span>Toutes les villes</span>
+                    </div>
+                    {cityFilter === 'all' && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* List of detected cities */}
+                  {availableCities.length > 0 ? (
+                    availableCities.map((city) => {
+                      const isSelected = cityFilter.toLowerCase() === city.toLowerCase();
+                      return (
+                        <button
+                          key={city}
+                          type="button"
+                          onClick={() => {
+                            onCityFilterChange(city);
+                            setIsCityOpen(false);
+                          }}
+                          className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors ${
+                            isSelected
+                              ? 'bg-teal-50/80 text-teal-900 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <MapPin className={`w-3.5 h-3.5 ${isSelected ? 'text-teal-600' : 'text-slate-400'}`} />
+                            <span>{city}</span>
+                          </div>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="px-3.5 py-2 text-xs text-slate-400 italic">
+                      Aucune ville répertoriée
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
