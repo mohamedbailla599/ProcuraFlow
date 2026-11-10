@@ -7,20 +7,38 @@ import {
   LayoutGrid,
   List,
   Download,
+  ArrowUpDown,
+  MapPin,
+  ChevronDown,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
+
+export type SortOption =
+  | 'name-asc'
+  | 'name-desc'
+  | 'commands-desc'
+  | 'date-desc'
+  | 'date-asc'
+  | 'id-asc';
 
 interface FilterBarProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (status: 'all' | 'active' | 'inactive') => void;
+  sortBy: SortOption;
+  onSortChange: (sort: SortOption) => void;
+  cityFilter: string;
+  onCityFilterChange: (city: string) => void;
+  availableCities: string[];
+  totalCount: number;
+  activeCount: number;
+  inactiveCount: number;
   viewMode?: 'table' | 'grid';
   onViewModeChange?: (mode: 'table' | 'grid') => void;
   onOpenCreateModal: () => void;
   onRefresh: () => void;
   loading: boolean;
-  totalFiltered: number;
   fournisseursToExport: Fournisseur[];
 }
 
@@ -29,12 +47,19 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onSearchChange,
   statusFilter,
   onStatusFilterChange,
+  sortBy,
+  onSortChange,
+  cityFilter,
+  onCityFilterChange,
+  availableCities,
+  totalCount,
+  activeCount,
+  inactiveCount,
   viewMode = 'table',
   onViewModeChange,
   onOpenCreateModal,
   onRefresh,
   loading,
-  totalFiltered,
   fournisseursToExport,
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -80,15 +105,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     document.body.removeChild(link);
   };
 
-  const countBadge = `${totalFiltered} ${totalFiltered > 1 ? 'fournisseurs' : 'fournisseur'}`;
-
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* Left: Search Bar & Status Filter */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        {/* Left: Search Bar, Status Filter & Sorting / City Selectors */}
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
           {/* Search Input */}
-          <div className="relative flex-1 sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-xs md:max-w-sm lg:max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               ref={searchInputRef}
@@ -114,51 +137,97 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             )}
           </div>
 
-          {/* Segmented Status Tabs */}
-          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 text-xs font-semibold self-start sm:self-auto shadow-2xs">
+          {/* Segmented Status Tabs with integrated count badges */}
+          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 text-xs font-semibold shadow-2xs shrink-0">
             <button
               type="button"
               onClick={() => onStatusFilterChange('all')}
-              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
+              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'all'
                   ? 'bg-white text-slate-900 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tous
+              <span>Tous</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/70 text-slate-700 font-mono">
+                {totalCount}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => onStatusFilterChange('active')}
-              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
+              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'active'
                   ? 'bg-white text-emerald-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Actifs
+              <span>Actifs</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+                {activeCount}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => onStatusFilterChange('inactive')}
-              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
+              className={`h-full px-3 rounded-md transition-all duration-150 active:scale-95 flex items-center space-x-1.5 ${
                 statusFilter === 'inactive'
                   ? 'bg-white text-slate-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Inactifs
+              <span>Inactifs</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-mono">
+                {inactiveCount}
+              </span>
             </button>
           </div>
 
-          {/* Count pill */}
-          <span className="hidden md:inline-flex items-center text-xs font-semibold text-slate-500 bg-slate-50 px-3 h-9 rounded-lg border border-slate-200/80">
-            <span>{countBadge}</span>
-          </span>
+          {/* 1. Sorting Selector with Icon */}
+          <div className="relative inline-flex items-center shrink-0">
+            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <ArrowUpDown className="w-3.5 h-3.5 text-teal-600" />
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => onSortChange(e.target.value as SortOption)}
+              className="h-9 pl-8 pr-7 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer appearance-none shadow-2xs"
+              title="Trier la liste des fournisseurs"
+            >
+              <option value="name-asc">Nom (A → Z)</option>
+              <option value="name-desc">Nom (Z → A)</option>
+              <option value="commands-desc">Nb Commandes ↓</option>
+              <option value="date-desc">Plus récents</option>
+              <option value="date-asc">Plus anciens</option>
+              <option value="id-asc">ID (Croissant)</option>
+            </select>
+            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 pointer-events-none" />
+          </div>
+
+          {/* 2. City Filter Selector with Icon */}
+          <div className="relative inline-flex items-center shrink-0">
+            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <MapPin className="w-3.5 h-3.5 text-teal-600" />
+            </div>
+            <select
+              value={cityFilter}
+              onChange={(e) => onCityFilterChange(e.target.value)}
+              className="h-9 pl-8 pr-7 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all cursor-pointer appearance-none shadow-2xs"
+              title="Filtrer par ville"
+            >
+              <option value="all">Toutes les villes</option>
+              {availableCities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 pointer-events-none" />
+          </div>
         </div>
 
         {/* Right: View Mode + Utilities + CTA */}
-        <div className="flex items-center justify-between sm:justify-end space-x-2">
+        <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0 pt-2 xl:pt-0">
           {/* View mode toggle (Table / Grid) */}
           <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 shadow-2xs">
             <button

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { StatsBar } from './components/StatsBar';
-import { FilterBar } from './components/FilterBar';
+import { FilterBar, SortOption } from './components/FilterBar';
 import { FournisseurTable } from './components/FournisseurTable';
 import { FournisseurCards } from './components/FournisseurCards';
 import { FournisseurModal } from './components/FournisseurModal';
@@ -12,7 +12,41 @@ import { Fournisseur, FournisseurRequest, FilterParams } from './types/fournisse
 import {
   fournisseurApi,
   INITIAL_MOCK_FOURNISSEURS,
+  MOCK_COMMANDES,
 } from './api/fournisseurApi';
+
+// Helper to extract city name from address
+const extractCity = (adresse?: string | null): string => {
+  if (!adresse) return '';
+  const normalized = adresse.trim();
+  const knownCities = [
+    'Agadir',
+    'Casablanca',
+    'Rabat',
+    'Marrakech',
+    'Tanger',
+    'Fès',
+    'Meknès',
+    'Oujda',
+    'Kenitra',
+    'Tétouan',
+    'Salé',
+    'Paris',
+    'Lyon',
+    'Marseille',
+  ];
+  for (const city of knownCities) {
+    const regex = new RegExp(`\\b${city}\\b`, 'i');
+    if (regex.test(normalized)) {
+      return city;
+    }
+  }
+  const parts = normalized.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return parts[parts.length - 2].replace(/\d+/g, '').trim();
+  }
+  return parts[0] || '';
+};
 
 export default function App() {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
@@ -25,9 +59,12 @@ export default function App() {
   // View mode (table or grid)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
-  // Filters
+  // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
+  const [cityFilter, setCityFilter] = useState<string>('all');
+  const [commandCounts, setCommandCounts] = useState<Record<number, number>>({});
 
   // Modals & Drawers
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,16 +96,73 @@ export default function App() {
     }
   }, []);
 
+  // Dynamic available cities extracted from existing suppliers
+  const availableCities = useMemo(() => {
+    const pool = demoMode ? mockStore : allFournisseurs.length > 0 ? allFournisseurs : fournisseurs;
+    const citiesSet = new Set<string>();
+    pool.forEach((f) => {
+      const city = extractCity(f.adresse);
+      if (city && city.length > 1) {
+        citiesSet.add(city);
+      }
+    });
+    return Array.from(citiesSet).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [demoMode, mockStore, allFournisseurs, fournisseurs]);
+
+  // Status counts for tabs
+  const currentPool = demoMode ? mockStore : allFournisseurs.length > 0 ? allFournisseurs : fournisseurs;
+  const totalCount = currentPool.length;
+  const activeCount = currentPool.filter((f) => f.actif).length;
+  const inactiveCount = currentPool.filter((f) => !f.actif).length;
+
+  // Sorting helper
+  const applySort = useCallback(
+    (list: Fournisseur[], sort: SortOption, counts: Record<number, number>) => {
+      const copy = [...list];
+      copy.sort((a, b) => {
+        switch (sort) {
+          case 'name-asc':
+            return a.nom.localeCompare(b.nom, 'fr');
+          case 'name-desc':
+            return b.nom.localeCompare(a.nom, 'fr');
+          case 'commands-desc':
+            return (counts[b.id] || 0) - (counts[a.id] || 0);
+          case 'date-desc':
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          case 'date-asc':
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          case 'id-asc':
+            return a.id - b.id;
+          default:
+            return 0;
+        }
+      });
+      return copy;
+    },
+    []
+  );
+
   // Fetch suppliers list
   const loadFournisseurs = useCallback(async () => {
     setLoading(true);
 
     if (demoMode) {
+      const counts: Record<number, number> = {};
+      mockStore.forEach((f) => {
+        counts[f.id] = MOCK_COMMANDES[f.id]?.length || 0;
+      });
+      setCommandCounts(counts);
+
       let filtered = [...mockStore];
       if (statusFilter === 'active') {
         filtered = filtered.filter((f) => f.actif);
       } else if (statusFilter === 'inactive') {
         filtered = filtered.filter((f) => !f.actif);
+      }
+      if (cityFilter !== 'all') {
+        filtered = filtered.filter(
+          (f) => extractCity(f.adresse).toLowerCase() === cityFilter.toLowerCase()
+        );
       }
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
@@ -80,7 +174,8 @@ export default function App() {
             (f.adresse && f.adresse.toLowerCase().includes(query))
         );
       }
-      setFournisseurs(filtered);
+
+      setFournisseurs(applySort(filtered, sortBy, counts));
       setLoading(false);
       return;
     }
@@ -102,7 +197,22 @@ export default function App() {
 
       setAllFournisseurs(fullList);
 
+      // Background command count loading without blocking
+      fullList.forEach(async (f) => {
+        try {
+          const cmds = await fournisseurApi.getCommandes(f.id);
+          setCommandCounts((prev) => ({ ...prev, [f.id]: cmds.length }));
+        } catch {
+          // If microservice 8082 is down, ignore
+        }
+      });
+
       let filtered = data;
+      if (cityFilter !== 'all') {
+        filtered = filtered.filter(
+          (f) => extractCity(f.adresse).toLowerCase() === cityFilter.toLowerCase()
+        );
+      }
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase().trim();
         filtered = filtered.filter(
@@ -114,7 +224,7 @@ export default function App() {
         );
       }
 
-      setFournisseurs(filtered);
+      setFournisseurs(applySort(filtered, sortBy, commandCounts));
       setIsBackendHealthy(true);
     } catch (err) {
       console.error('Failed to load suppliers from backend:', err);
@@ -126,7 +236,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [demoMode, mockStore, statusFilter, searchTerm]);
+  }, [demoMode, mockStore, statusFilter, searchTerm, cityFilter, sortBy, commandCounts, applySort]);
 
   useEffect(() => {
     checkBackendHealth();
@@ -303,12 +413,19 @@ export default function App() {
           onSearchChange={setSearchTerm}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          cityFilter={cityFilter}
+          onCityFilterChange={setCityFilter}
+          availableCities={availableCities}
+          totalCount={totalCount}
+          activeCount={activeCount}
+          inactiveCount={inactiveCount}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onOpenCreateModal={handleOpenCreate}
           onRefresh={loadFournisseurs}
           loading={loading}
-          totalFiltered={fournisseurs.length}
           fournisseursToExport={fournisseurs}
         />
 
