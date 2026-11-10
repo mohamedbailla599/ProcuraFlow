@@ -4,7 +4,7 @@ import { StatsBar } from './components/StatsBar';
 import { FilterBar, SortOption } from './components/FilterBar';
 import { FournisseurTable } from './components/FournisseurTable';
 import { FournisseurCards } from './components/FournisseurCards';
-import { FournisseurModal } from './components/FournisseurModal';
+import { FournisseurModal, MOROCCAN_CITIES } from './components/FournisseurModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CommandesDrawer } from './components/CommandesDrawer';
 import { Toast, ToastMessage } from './components/Toast';
@@ -19,23 +19,7 @@ import {
 const extractCity = (adresse?: string | null): string => {
   if (!adresse) return '';
   const normalized = adresse.trim();
-  const knownCities = [
-    'Agadir',
-    'Casablanca',
-    'Rabat',
-    'Marrakech',
-    'Tanger',
-    'Fès',
-    'Meknès',
-    'Oujda',
-    'Kenitra',
-    'Tétouan',
-    'Salé',
-    'Paris',
-    'Lyon',
-    'Marseille',
-  ];
-  for (const city of knownCities) {
+  for (const city of MOROCCAN_CITIES) {
     const regex = new RegExp(`\\b${city}\\b`, 'i');
     if (regex.test(normalized)) {
       return city;
@@ -43,7 +27,11 @@ const extractCity = (adresse?: string | null): string => {
   }
   const parts = normalized.split(',').map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
-    return parts[parts.length - 2].replace(/\d+/g, '').trim();
+    const lastPart = parts[parts.length - 1];
+    if (['maroc', 'france', 'morocco'].includes(lastPart.toLowerCase()) && parts.length >= 2) {
+      return parts[parts.length - 2].replace(/\d+/g, '').trim();
+    }
+    return lastPart.replace(/\d+/g, '').trim();
   }
   return parts[0] || '';
 };
