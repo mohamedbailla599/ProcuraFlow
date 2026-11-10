@@ -102,35 +102,35 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden animate-fade-in-up">
       <div ref={scrollContainerRef} className="overflow-x-auto w-full">
-        <table className="w-full text-left border-collapse table-fixed min-w-[1020px]">
-          {/* Explicit balanced column proportions for clean desktop presentation */}
+        <table className="w-full text-left border-collapse table-fixed">
+          {/* Explicit balanced column proportions for clean responsive presentation without horizontal scroll */}
           <colgroup>
             <col className="w-[24%]" />
+            <col className="w-[22%]" />
             <col className="w-[21%]" />
-            <col className="w-[19%]" />
-            <col className="w-[15%]" />
+            <col className="w-[11%]" />
             <col className="w-[9%]" />
-            <col className="w-[12%]" />
+            <col className="w-[13%]" />
           </colgroup>
 
           <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
             <tr>
-              <th scope="col" className="px-6 py-3.5">
+              <th scope="col" className="px-5 py-3.5">
                 Fournisseur
               </th>
-              <th scope="col" className="px-5 py-3.5">
+              <th scope="col" className="px-4 py-3.5">
                 Coordonnées
               </th>
-              <th scope="col" className="px-5 py-3.5">
+              <th scope="col" className="px-4 py-3.5">
                 Adresse
               </th>
-              <th scope="col" className="px-4 py-3.5">
+              <th scope="col" className="px-3 py-3.5">
                 Évaluation
               </th>
-              <th scope="col" className="px-4 py-3.5 text-center">
+              <th scope="col" className="px-3 py-3.5 text-center">
                 Statut
               </th>
-              <th scope="col" className="pr-6 pl-2 py-3.5 text-right">
+              <th scope="col" className="pr-5 pl-2 py-3.5 text-right">
                 Actions
               </th>
             </tr>
@@ -251,37 +251,27 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     )}
                   </td>
 
-                  {/* Colonne 4: Évaluation & Scoring */}
-                  <td className="px-4 py-4 align-middle">
-                    <div className="flex flex-col space-y-1">
-                      <div className="flex items-center space-x-1.5">
-                        <div className="flex items-center space-x-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`w-3.5 h-3.5 ${
-                                star <= Math.round(rating.score)
-                                  ? 'text-amber-400 fill-amber-400'
-                                  : 'text-slate-200 dark:text-slate-700'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                          {rating.score.toFixed(1)}
-                        </span>
+                  {/* Colonne 4: Évaluation & Scoring (Stars only) */}
+                  <td className="px-3 py-4 align-middle whitespace-nowrap">
+                    <div
+                      className="flex items-center space-x-1.5"
+                      title={`Évaluation : ${rating.score.toFixed(1)} / 5.0 (${rating.fiabilitePct}% de fiabilité)`}
+                    >
+                      <div className="flex items-center space-x-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${
+                              star <= Math.round(rating.score)
+                                ? 'text-amber-400 fill-amber-400'
+                                : 'text-slate-200 dark:text-slate-700'
+                            }`}
+                          />
+                        ))}
                       </div>
-                      <div className="flex items-center space-x-1.5">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${rating.badgeClass}`}
-                          title={`Taux de fiabilité estimé : ${rating.fiabilitePct}%`}
-                        >
-                          {rating.statusLabel}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
-                          {rating.fiabilitePct}% fiab.
-                        </span>
-                      </div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {rating.score.toFixed(1)}
+                      </span>
                     </div>
                   </td>
 
