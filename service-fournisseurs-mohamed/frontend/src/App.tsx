@@ -240,10 +240,13 @@ export default function App() {
       {/* Main Container: Wide, Spacious & Responsive Enterprise Layout */}
       <main className="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-7">
         {/* Hero Section */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-up">
           <div>
-            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-bold px-2.5 py-1 rounded-full mb-2.5 shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
+            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-semibold px-3 py-1 rounded-full mb-2.5 shadow-xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-600" />
+              </span>
               <span>Gestion des Achats & Approvisionnements</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">

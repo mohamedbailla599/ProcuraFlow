@@ -77,6 +77,17 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
     loadCommandes();
   }, [fournisseur, isOpen, demoMode]);
 
+  // Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !fournisseur) return null;
 
   const toggleExpand = (id: number) => {
@@ -126,8 +137,16 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
     .join('') || 'FO';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end transition-opacity duration-300">
-      <div className="w-full max-w-xl bg-white shadow-2xl border-l border-slate-200 flex flex-col h-full animate-in slide-in-from-right duration-300 ease-out">
+    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in-up"
+        style={{ animationDuration: '150ms' }}
+        onClick={onClose}
+      />
+
+      {/* Drawer Container */}
+      <div className="relative w-full max-w-xl bg-white shadow-2xl border-l border-slate-200 flex flex-col h-full animate-slide-in-right">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200/80 bg-gradient-to-r from-slate-50 to-teal-50/30 flex items-center justify-between">
           <div className="flex items-center space-x-3.5">
@@ -145,7 +164,8 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-all duration-150 active:scale-95"
+            aria-label="Fermer le panneau"
           >
             <X className="w-5 h-5" />
           </button>
@@ -154,7 +174,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Supplier quick summary card */}
-          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/80 p-4.5 space-y-2 text-xs shadow-2xs">
+          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/80 p-4.5 space-y-2 text-xs shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-500 flex items-center space-x-1.5">
                 <Mail className="w-3.5 h-3.5 text-slate-400" />
@@ -185,7 +205,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
           {/* Degraded mode alert */}
           {error && (
-            <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4.5 text-amber-900 text-xs flex items-start space-x-3 shadow-xs">
+            <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4.5 text-amber-900 text-xs flex items-start space-x-3 shadow-xs animate-fade-in-up">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-bold text-amber-950">Microservice Commandes non démarré :</p>
@@ -214,7 +234,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
           {/* Empty state */}
           {!loading && !error && commandes.length === 0 && (
-            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6">
+            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-6 animate-fade-in-up">
               <Package className="w-12 h-12 text-slate-300 mx-auto mb-2.5" />
               <h4 className="text-sm font-bold text-slate-800">Aucune commande enregistrée</h4>
               <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
@@ -304,7 +324,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                               </div>
                               <div className="text-right">
                                 <span className="font-bold text-slate-800">
-                                  {(ligne.quantite * ligne.prixUnitaire).toLocaleString('fr-FR', {
+                                   {(ligne.quantite * ligne.prixUnitaire).toLocaleString('fr-FR', {
                                     minimumFractionDigits: 2,
                                   })} MAD
                                 </span>
@@ -328,7 +348,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
         <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 shadow-2xs transition-colors"
+            className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 shadow-xs transition-all duration-150 active:scale-95"
           >
             Fermer le volet
           </button>

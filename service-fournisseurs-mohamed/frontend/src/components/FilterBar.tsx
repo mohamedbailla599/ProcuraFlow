@@ -83,11 +83,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const countBadge = `${totalFiltered} ${totalFiltered > 1 ? 'fournisseurs' : 'fournisseur'}`;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs mb-5 transition-all">
+    <div className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs mb-5 transition-all duration-200 animate-fade-in-up">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left: Search Bar & Status Filter */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
-          {/* Search Input: Expansive and comfortable on desktop */}
+          {/* Search Input */}
           <div className="relative flex-1 sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
@@ -96,32 +96,32 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Rechercher par nom ou email..."
-              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+              className="w-full h-9 pl-9 pr-8 text-xs bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-150"
             />
             {searchTerm ? (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
                 aria-label="Effacer la recherche"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             ) : (
-              <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-1 py-0.2 rounded shadow-2xs">
+              <kbd className="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 px-1.5 py-px rounded shadow-2xs">
                 /
               </kbd>
             )}
           </div>
 
           {/* Segmented Status Tabs */}
-          <div className="inline-flex h-9 rounded-lg border border-slate-200 p-0.5 bg-slate-100/80 text-xs font-semibold self-start sm:self-auto">
+          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 text-xs font-semibold self-start sm:self-auto shadow-2xs">
             <button
               type="button"
               onClick={() => onStatusFilterChange('all')}
-              className={`h-full px-3 rounded-md transition-all ${
+              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
                 statusFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -130,9 +130,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onStatusFilterChange('active')}
-              className={`h-full px-3 rounded-md transition-all ${
+              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
                 statusFilter === 'active'
-                  ? 'bg-white text-emerald-700 shadow-2xs font-bold'
+                  ? 'bg-white text-emerald-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -141,9 +141,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onStatusFilterChange('inactive')}
-              className={`h-full px-3 rounded-md transition-all ${
+              className={`h-full px-3.5 rounded-md transition-all duration-150 active:scale-95 ${
                 statusFilter === 'inactive'
-                  ? 'bg-white text-slate-700 shadow-2xs font-bold'
+                  ? 'bg-white text-slate-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -152,7 +152,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           {/* Count pill */}
-          <span className="hidden md:inline-flex items-center text-xs font-semibold text-slate-500 bg-slate-100/90 px-3 h-9 rounded-lg border border-slate-200">
+          <span className="hidden md:inline-flex items-center text-xs font-semibold text-slate-500 bg-slate-50 px-3 h-9 rounded-lg border border-slate-200/80">
             <span>{countBadge}</span>
           </span>
         </div>
@@ -160,15 +160,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         {/* Right: View Mode + Utilities + CTA */}
         <div className="flex items-center justify-between sm:justify-end space-x-2">
           {/* View mode toggle (Table / Grid) */}
-          <div className="inline-flex h-9 rounded-lg border border-slate-200 p-0.5 bg-slate-100/80">
+          <div className="inline-flex h-9 rounded-lg border border-slate-200/90 p-0.5 bg-slate-100/80 shadow-2xs">
             <button
               type="button"
               onClick={() => onViewModeChange && onViewModeChange('table')}
               title="Affichage Tableau"
               aria-label="Affichage Tableau"
-              className={`h-full px-2 rounded-md transition-all ${
+              className={`h-full px-2.5 rounded-md transition-all duration-150 active:scale-95 ${
                 viewMode === 'table'
-                  ? 'bg-white text-teal-700 shadow-2xs'
+                  ? 'bg-white text-teal-700 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -179,9 +179,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onViewModeChange && onViewModeChange('grid')}
               title="Affichage Cartes"
               aria-label="Affichage Cartes"
-              className={`h-full px-2 rounded-md transition-all ${
+              className={`h-full px-2.5 rounded-md transition-all duration-150 active:scale-95 ${
                 viewMode === 'grid'
-                  ? 'bg-white text-teal-700 shadow-2xs'
+                  ? 'bg-white text-teal-700 shadow-xs'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -195,7 +195,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             onClick={handleExportCSV}
             title="Exporter les fournisseurs filtrés (CSV)"
             aria-label="Exporter CSV"
-            className="h-9 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors flex items-center space-x-1.5 text-xs font-medium"
+            className="h-9 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-xs transition-all duration-150 active:scale-[0.97] flex items-center space-x-1.5 text-xs font-semibold"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Export CSV</span>
@@ -208,7 +208,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             disabled={loading}
             title="Actualiser les données"
             aria-label="Actualiser les données"
-            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 shadow-2xs transition-colors disabled:opacity-50"
+            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-teal-600' : ''}`} />
           </button>
@@ -217,7 +217,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <button
             type="button"
             onClick={onOpenCreateModal}
-            className="h-9 px-3.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors whitespace-nowrap"
+            className="h-9 px-3.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-sm hover:shadow-md flex items-center space-x-1.5 transition-all duration-150 active:scale-[0.97] whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Nouveau Fournisseur</span>

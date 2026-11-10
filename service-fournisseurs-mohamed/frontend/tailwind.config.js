@@ -16,9 +16,12 @@ export default {
           800: '#115e59',
           900: '#134e4a',
         }
+      },
+      boxShadow: {
+        '2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+        'xs': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
       }
     },
   },
   plugins: [],
 };
-
