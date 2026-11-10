@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { StatsBar } from './components/StatsBar';
 import { FilterBar } from './components/FilterBar';
 import { FournisseurTable } from './components/FournisseurTable';
+import { FournisseurCards } from './components/FournisseurCards';
 import { FournisseurModal } from './components/FournisseurModal';
 import { CommandesDrawer } from './components/CommandesDrawer';
 import { Toast, ToastMessage } from './components/Toast';
@@ -19,9 +20,12 @@ export default function App() {
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean | null>(null);
   const [demoMode, setDemoMode] = useState<boolean>(false);
 
+  // View mode (table or grid)
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Modals & Drawers
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,7 +94,6 @@ export default function App() {
     } catch (err) {
       console.error('Failed to load suppliers from backend:', err);
       setIsBackendHealthy(false);
-      // Auto fallback recommendation
       showToast(
         'error',
         'Backend Spring Boot inaccessible sur :8081. Vous pouvez basculer en "Mode Démo" pour tester l\'interface.'
@@ -108,11 +111,28 @@ export default function App() {
     loadFournisseurs();
   }, [loadFournisseurs]);
 
+  // Global keyboard shortcut 'N' to open create modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === 'n' || e.key === 'N') &&
+        !isModalOpen &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        setFournisseurToEdit(null);
+        setIsModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   // Handle Create or Update
   const handleSaveFournisseur = async (payload: FournisseurRequest) => {
     if (demoMode) {
       if (fournisseurToEdit) {
-        // Update mock
         const updated = mockStore.map((f) =>
           f.id === fournisseurToEdit.id
             ? {
@@ -127,7 +147,6 @@ export default function App() {
         setMockStore(updated);
         showToast('success', `Fournisseur "${payload.nom}" mis à jour avec succès (Démo) !`);
       } else {
-        // Create mock
         const newId = Math.max(...mockStore.map((f) => f.id), 0) + 1;
         const newSupplier: Fournisseur = {
           id: newId,
@@ -145,7 +164,6 @@ export default function App() {
       return;
     }
 
-    // Real API mode
     if (fournisseurToEdit) {
       await fournisseurApi.updateFournisseur(fournisseurToEdit.id, payload);
       showToast('success', `Fournisseur "${payload.nom}" mis à jour avec succès !`);
@@ -190,27 +208,24 @@ export default function App() {
     }
   };
 
-  // Open Edit Modal
   const handleOpenEdit = (fournisseur: Fournisseur) => {
     setFournisseurToEdit(fournisseur);
     setIsModalOpen(true);
   };
 
-  // Open Create Modal
   const handleOpenCreate = () => {
     setFournisseurToEdit(null);
     setIsModalOpen(true);
   };
 
-  // Open Commandes Drawer
   const handleViewCommandes = (fournisseur: Fournisseur) => {
     setSelectedFournisseur(fournisseur);
     setIsDrawerOpen(true);
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-      {/* Navigation Header */}
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-slate-50 to-teal-50/20 text-slate-800">
+      {/* Top Navbar */}
       <Navbar
         isBackendHealthy={isBackendHealthy}
         demoMode={demoMode}
@@ -219,42 +234,67 @@ export default function App() {
           showToast('success', !demoMode ? 'Mode Démo activé.' : 'Mode API Réel activé.');
         }}
         onRefreshHealth={checkBackendHealth}
+        onOpenCreateModal={handleOpenCreate}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page title and introduction */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Répertoire des Fournisseurs
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Gérez les fiches fournisseurs, vérifiez l'éligibilité et consultez l'historique des bons de commande.
-          </p>
+        {/* Hero Section */}
+        <div className="mb-7 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center space-x-2 bg-teal-50 border border-teal-200/80 text-teal-800 text-xs font-bold px-2.5 py-1 rounded-full mb-2 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
+              <span>Gestion des Achats & Approvisionnements</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              Répertoire des Fournisseurs
+            </h1>
+            <p className="text-sm text-slate-500 mt-1 max-w-xl">
+              Consultez les fiches fournisseurs, vérifiez l'éligibilité et explorez l'historique des bons de commande émis via le microservice Commandes.
+            </p>
+          </div>
         </div>
 
-        {/* Summary Stats */}
-        <StatsBar fournisseurs={demoMode ? mockStore : fournisseurs} />
+        {/* Stats Cards (Interactive Click-to-filter) */}
+        <StatsBar
+          fournisseurs={demoMode ? mockStore : fournisseurs}
+          currentStatusFilter={statusFilter}
+          onSelectStatusFilter={setStatusFilter}
+        />
 
-        {/* Search & Filter Bar */}
+        {/* Search, Filter & View Controls */}
         <FilterBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           onOpenCreateModal={handleOpenCreate}
           onRefresh={loadFournisseurs}
           loading={loading}
+          totalFiltered={fournisseurs.length}
+          fournisseursToExport={fournisseurs}
         />
 
-        {/* Main Suppliers Table */}
-        <FournisseurTable
-          fournisseurs={fournisseurs}
-          loading={loading}
-          onEdit={handleOpenEdit}
-          onToggleStatus={handleToggleStatus}
-          onViewCommandes={handleViewCommandes}
-        />
+        {/* Data View (Table or Grid Cards) */}
+        {viewMode === 'table' ? (
+          <FournisseurTable
+            fournisseurs={fournisseurs}
+            loading={loading}
+            onEdit={handleOpenEdit}
+            onToggleStatus={handleToggleStatus}
+            onViewCommandes={handleViewCommandes}
+          />
+        ) : (
+          <FournisseurCards
+            fournisseurs={fournisseurs}
+            loading={loading}
+            onEdit={handleOpenEdit}
+            onToggleStatus={handleToggleStatus}
+            onViewCommandes={handleViewCommandes}
+          />
+        )}
       </main>
 
       {/* Modal Create / Edit */}
@@ -273,9 +313,8 @@ export default function App() {
         demoMode={demoMode}
       />
 
-      {/* Floating Toast Notification */}
+      {/* Floating Animated Toast */}
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
-
