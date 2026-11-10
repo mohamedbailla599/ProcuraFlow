@@ -113,6 +113,7 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
   const [selectedVille, setSelectedVille] = useState('');
   const [customVille, setCustomVille] = useState('');
   const [rating, setRating] = useState<number>(4.5);
+  const [ratingInput, setRatingInput] = useState<string>('4.5');
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -134,6 +135,7 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
       setAdresse(parsed.street);
       const computed = computeSupplierRating(fournisseurToEdit);
       setRating(computed.score);
+      setRatingInput(computed.score.toFixed(1));
     } else {
       setNom('');
       setEmail('');
@@ -142,11 +144,35 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
       setCustomVille('');
       setAdresse('');
       setRating(4.5);
+      setRatingInput('4.5');
     }
     setIsCityDropdownOpen(false);
     setCitySearchQuery('');
     setErrorMessage(null);
   }, [fournisseurToEdit, isOpen]);
+
+  const handleRatingInputChange = (val: string) => {
+    setRatingInput(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 1 && num <= 5) {
+      setRating(Math.round(num * 10) / 10);
+    }
+  };
+
+  const handleRatingInputBlur = () => {
+    const num = parseFloat(ratingInput);
+    if (isNaN(num) || num < 1) {
+      setRating(1.0);
+      setRatingInput('1.0');
+    } else if (num > 5) {
+      setRating(5.0);
+      setRatingInput('5.0');
+    } else {
+      const clamped = Math.round(num * 10) / 10;
+      setRating(clamped);
+      setRatingInput(clamped.toFixed(1));
+    }
+  };
 
   // Auto-focus first field when modal opens
   useEffect(() => {
@@ -232,17 +258,22 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
       combinedAdresse = streetTrimmed;
     }
 
+    const num = parseFloat(ratingInput);
+    const finalRating = !isNaN(num)
+      ? Math.max(1, Math.min(5, Math.round(num * 10) / 10))
+      : rating;
+
     setLoading(true);
     try {
       if (fournisseurToEdit?.id) {
-        saveSupplierRating(fournisseurToEdit.id, rating);
+        saveSupplierRating(fournisseurToEdit.id, finalRating);
       }
       await onSubmit({
         nom: nom.trim(),
         email: email.trim(),
         telephone: telephone.trim() || null,
         adresse: combinedAdresse,
-        rating,
+        rating: finalRating,
       });
       onClose();
     } catch (err: unknown) {
@@ -602,27 +633,51 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
                   <span>{rating.toFixed(1)} / 5.0</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
-                <div className="flex items-center space-x-1">
-                  {[1, 2, 3, 4, 5].map((starValue) => (
-                    <button
-                      key={starValue}
-                      type="button"
-                      onClick={() => setRating(starValue)}
-                      className="p-1 hover:scale-125 transition-transform duration-150 active:scale-95"
-                      title={`Attribuer ${starValue} étoile${starValue > 1 ? 's' : ''}`}
-                    >
-                      <Star
-                        className={`w-5 h-5 transition-colors ${
-                          starValue <= Math.round(rating)
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-300 dark:text-slate-600 hover:text-amber-300'
-                        }`}
-                      />
-                    </button>
-                  ))}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                {/* Clickable Stars + Saisie Manuelle */}
+                <div className="flex items-center space-x-2.5">
+                  {/* 5 Etoiles */}
+                  <div className="flex items-center space-x-0.5">
+                    {[1, 2, 3, 4, 5].map((starValue) => (
+                      <button
+                        key={starValue}
+                        type="button"
+                        onClick={() => {
+                          setRating(starValue);
+                          setRatingInput(starValue.toFixed(1));
+                        }}
+                        className="p-1 hover:scale-125 transition-transform duration-150 active:scale-95"
+                        title={`Attribuer ${starValue} étoile${starValue > 1 ? 's' : ''}`}
+                      >
+                        <Star
+                          className={`w-5 h-5 transition-colors ${
+                            starValue <= Math.round(rating)
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-300 dark:text-slate-600 hover:text-amber-300'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Champ de saisie de note exacte */}
+                  <div className="flex items-center space-x-1 pl-1 border-l border-slate-200 dark:border-slate-700">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={ratingInput}
+                      onChange={(e) => handleRatingInputChange(e.target.value)}
+                      onBlur={handleRatingInputBlur}
+                      placeholder="4.5"
+                      className="w-12 h-7 text-center text-xs font-bold rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                      title="Saisir la note exacte (ex: 4.7)"
+                      aria-label="Note exacte sur 5"
+                    />
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">/ 5.0</span>
+                  </div>
                 </div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">
                   {rating >= 4.5
                     ? '⭐ Recommandé (Top Tier)'
                     : rating >= 3.5
