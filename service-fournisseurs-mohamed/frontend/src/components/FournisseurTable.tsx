@@ -105,12 +105,12 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
         <table className="w-full text-left border-collapse table-fixed">
           {/* Explicit balanced column proportions for clean responsive presentation without horizontal scroll */}
           <colgroup>
-            <col className="w-[24%]" />
+            <col className="w-[26%]" />
+            <col className="w-[23%]" />
             <col className="w-[22%]" />
-            <col className="w-[21%]" />
             <col className="w-[11%]" />
             <col className="w-[9%]" />
-            <col className="w-[13%]" />
+            <col className="w-[9%]" />
           </colgroup>
 
           <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
@@ -294,18 +294,17 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                   </td>
 
                   {/* Colonne 5: Actions */}
-                  <td className="pr-6 pl-2 py-4 align-middle text-right whitespace-nowrap">
+                  <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap">
                     <div className="inline-flex items-center justify-end space-x-1.5">
-                      {/* Action Voir Commandes */}
+                      {/* Action Voir Commandes (Icon-only with glowing hover) */}
                       <button
                         type="button"
                         onClick={() => onViewCommandes(fournisseur)}
                         title="Consulter les bons de commande de ce fournisseur"
                         aria-label="Voir les commandes"
-                        className="inline-flex items-center space-x-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 border border-teal-200/80 dark:border-teal-800/80 shadow-xs transition-all duration-150 active:scale-[0.97]"
+                        className="group/cmd w-8 h-8 flex items-center justify-center rounded-lg border border-teal-200/90 dark:border-teal-800/80 bg-teal-50/80 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 transition-all duration-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 hover:border-teal-400 dark:hover:border-teal-400 hover:shadow-[0_0_12px_rgba(20,184,166,0.55)] dark:hover:shadow-[0_0_16px_rgba(45,212,191,0.45)] hover:scale-105 active:scale-95"
                       >
-                        <ShoppingBag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                        <span>Commandes</span>
+                        <ShoppingBag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 transition-transform duration-200 group-hover/cmd:scale-110" />
                       </button>
 
                       {/* Action Modifier */}
