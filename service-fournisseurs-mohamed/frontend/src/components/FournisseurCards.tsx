@@ -13,14 +13,21 @@ import {
   Star,
   TrendingUp,
   Calendar,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { computeSupplierRating } from '../utils/scoring';
 import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
+import { getStaggerDelayMs } from '../utils/pagination';
 
 interface FournisseurCardsProps {
   fournisseurs: Fournisseur[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  batchKey?: number;
+  isAnimatingEntrance?: boolean;
   orderStats?: Record<number, SupplierOrderStats>;
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
@@ -30,6 +37,10 @@ interface FournisseurCardsProps {
 export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
   fournisseurs,
   loading,
+  error = null,
+  onRetry,
+  batchKey = 0,
+  isAnimatingEntrance = false,
   orderStats,
   onEdit,
   onToggleStatus,
@@ -76,6 +87,33 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
     );
   }
 
+  // Error state
+  if (error && fournisseurs.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3.5 border border-rose-100 dark:border-rose-900/60">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1.5">
+          Impossible de charger cette page
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-4">
+          {error}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Réessayer</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   // Empty state
   if (fournisseurs.length === 0) {
     return (
@@ -92,7 +130,11 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div
+      className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-opacity duration-150 ${
+        loading ? 'opacity-55 pointer-events-none' : 'opacity-100'
+      }`}
+    >
       {fournisseurs.map((fournisseur, index) => {
         const initials = getInitials(fournisseur.nom);
         const rating = computeSupplierRating(fournisseur);
@@ -100,13 +142,19 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
 
         return (
           <div
-            key={fournisseur.id}
-            className={`group rounded-xl border transition-all duration-200 flex flex-col justify-between animate-fade-in-up ${
+            key={`${batchKey}-${fournisseur.id}`}
+            className={`group rounded-xl border transition-all duration-200 flex flex-col justify-between ${
+              isAnimatingEntrance ? 'supplier-entrance' : ''
+            } ${
               fournisseur.actif
                 ? 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-teal-300/60 dark:hover:border-teal-700/60 shadow-xs hover:shadow-lg hover:-translate-y-1'
                 : 'border-slate-200/70 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/60 opacity-85 hover:opacity-100 shadow-xs hover:shadow-md hover:-translate-y-0.5'
             }`}
-            style={{ animationDelay: `${index * 50}ms` }}
+            style={
+              isAnimatingEntrance
+                ? { animationDelay: `${getStaggerDelayMs(index, fournisseurs.length)}ms` }
+                : undefined
+            }
           >
             {/* Card Content */}
             <div className="p-5 space-y-3.5">
@@ -262,12 +310,22 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
               {/* Purchasing Statistics Section */}
               <div className="p-3 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-100/90 dark:border-slate-700/60 text-xs space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center space-x-1.5" title="Volume global de commandes actives (inclut les commandes en attente)">
+                    <TrendingUp className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     <span>Total Commandé</span>
                   </span>
-                  <span className="font-extrabold text-slate-900 dark:text-white text-xs">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 text-xs">
                     {stats ? formatMAD(stats.totalOrderedAmount) : '0,00 MAD'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                  <span className="text-[11px] font-bold text-teal-800 dark:text-teal-300 flex items-center space-x-1.5" title="Engagements fermes validés (hors commandes en attente & annulations)">
+                    <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    <span>Total Engagé</span>
+                  </span>
+                  <span className="font-extrabold text-teal-900 dark:text-teal-100 text-xs">
+                    {stats ? formatMAD(stats.totalCommittedAmount) : '0,00 MAD'}
                   </span>
                 </div>
 
@@ -279,7 +337,7 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
                       {stats ? `${stats.activeOrders} active${stats.activeOrders > 1 ? 's' : ''}` : '0'}
                       {stats && stats.completedOrders > 0 && (
-                        <span className="text-emerald-600 dark:text-emerald-400 ml-1">
+                        <span className="text-purple-600 dark:text-purple-400 ml-1" title="Commandes réceptionnées ou facturées dans le workflow Commandes (service fait, hors paiement)">
                           ({stats.completedOrders} liv.)
                         </span>
                       )}

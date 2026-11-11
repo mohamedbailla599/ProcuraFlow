@@ -262,12 +262,99 @@ html.dark .glass-panel {
   animation: fadeInUp 200ms ease-out both;
 }
 
+/* ─── Progressive supplier pagination entrance ─── */
+@keyframes supplierEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.supplier-entrance {
+  animation: supplierEntrance 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
 /* ─── Accessibility: respect reduced motion preferences ─── */
 @media (prefers-reduced-motion: reduce) {
+  .supplier-entrance {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ─── Leaflet Map & Cluster Styling (Light & Dark Mode) ─── */
+.leaflet-container {
+  font-family: var(--font-sans) !important;
+  background-color: #f1f5f9;
+  z-index: 10;
+}
+
+html.dark .leaflet-container {
+  background-color: #0b0f17;
+}
+
+.procura-popup .leaflet-popup-content-wrapper {
+  border-radius: 1rem;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 12px 30px -6px rgba(15, 23, 42, 0.22);
+  border: 1px solid #e2e8f0;
+}
+
+.procura-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: 295px !important;
+}
+
+html.dark .procura-popup .leaflet-popup-content-wrapper,
+html.dark .procura-popup .leaflet-popup-tip {
+  background-color: #0f172a;
+  color: #f8fafc;
+  border-color: #1e293b;
+}
+
+.procura-popup .leaflet-popup-close-button {
+  top: 8px !important;
+  right: 8px !important;
+  color: #94a3b8 !important;
+}
+
+html.dark .leaflet-control-zoom a {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+html.dark .leaflet-control-zoom a:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+html.dark .leaflet-control-attribution {
+  background-color: rgba(15, 23, 42, 0.8) !important;
+  color: #94a3b8 !important;
+}
+
+html.dark .leaflet-control-attribution a {
+  color: #2dd4bf !important;
+}
+
+.procura-cluster-icon,
+.procura-marker-icon {
+  background: transparent;
+  border: none;
 }

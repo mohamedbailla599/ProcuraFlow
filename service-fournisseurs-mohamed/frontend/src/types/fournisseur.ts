@@ -45,8 +45,42 @@ export interface ApiErrorResponse {
 
 export interface FilterParams {
   actif?: boolean;
+  search?: string;
+  nom?: string;
+  email?: string;
+  ville?: string;
+  includeInactive?: boolean;
+  sort?: string;
+}
+
+export interface PaginatedFilterParams {
+  page: number;
+  size: number;
+  sort?: string;
+  search?: string;
+  ville?: string;
+  actif?: boolean;
   nom?: string;
   email?: string;
   includeInactive?: boolean;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
+export interface FournisseurStats {
+  total: number;
+  actifs: number;
+  inactifs: number;
+  tauxEligibilite: number;
+  villes: string[];
 }
 

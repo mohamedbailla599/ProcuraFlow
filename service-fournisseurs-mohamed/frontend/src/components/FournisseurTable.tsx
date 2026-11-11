@@ -11,14 +11,21 @@ import {
   Copy,
   Check,
   Star,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { computeSupplierRating } from '../utils/scoring';
 import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
+import { getStaggerDelayMs } from '../utils/pagination';
 
 interface FournisseurTableProps {
   fournisseurs: Fournisseur[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  batchKey?: number;
+  isAnimatingEntrance?: boolean;
   orderStats?: Record<number, SupplierOrderStats>;
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
@@ -28,6 +35,10 @@ interface FournisseurTableProps {
 export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   fournisseurs,
   loading,
+  error = null,
+  onRetry,
+  batchKey = 0,
+  isAnimatingEntrance = false,
   orderStats,
   onEdit,
   onToggleStatus,
@@ -87,6 +98,33 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
     );
   }
 
+  // Error State
+  if (error && fournisseurs.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3.5 border border-rose-100 dark:border-rose-900/60">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1.5">
+          Impossible de charger cette page
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-4">
+          {error}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Réessayer</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   // Empty State
   if (fournisseurs.length === 0) {
     return (
@@ -103,7 +141,15 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden animate-fade-in-up">
+    <div className="relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+      {loading && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-0.5 bg-teal-500/20 overflow-hidden z-10"
+        >
+          <div className="h-full w-1/3 bg-teal-600 dark:bg-teal-400 animate-pulse rounded-full" />
+        </div>
+      )}
       <div ref={scrollContainerRef} className="overflow-x-auto w-full">
         <table className="w-full text-left border-collapse table-fixed">
           {/* Explicit balanced column proportions for clean responsive presentation without horizontal scroll */}
@@ -139,7 +185,11 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100/80 dark:divide-slate-800/80 text-sm">
+          <tbody
+            className={`divide-y divide-slate-100/80 dark:divide-slate-800/80 text-sm transition-opacity duration-150 ${
+              loading ? 'opacity-55 pointer-events-none' : 'opacity-100'
+            }`}
+          >
             {fournisseurs.map((fournisseur, index) => {
               const initials = getInitials(fournisseur.nom);
               const rating = computeSupplierRating(fournisseur);
@@ -147,9 +197,15 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
 
               return (
                 <tr
-                  key={fournisseur.id}
-                  className="hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors duration-150 group table-row-enter"
-                  style={{ animationDelay: `${index * 30}ms` }}
+                  key={`${batchKey}-${fournisseur.id}`}
+                  className={`hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors duration-150 group ${
+                    isAnimatingEntrance ? 'supplier-entrance' : ''
+                  }`}
+                  style={
+                    isAnimatingEntrance
+                      ? { animationDelay: `${getStaggerDelayMs(index, fournisseurs.length)}ms` }
+                      : undefined
+                  }
                 >
                   {/* Colonne 1: Fournisseur (Avatar + Nom + ID) */}
                   <td className="px-6 py-4 align-middle">
@@ -306,7 +362,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                         onClick={() => onViewCommandes(fournisseur)}
                         title={
                           stats && stats.totalOrders > 0
-                            ? `${fournisseur.nom} : ${stats.activeOrders} commande(s) active(s)${stats.completedOrders > 0 ? ` (${stats.completedOrders} livrée(s))` : ''} · Total engagé : ${formatMAD(stats.totalOrderedAmount)}${stats.latestOrderDate ? ` · Dernière : ${new Date(stats.latestOrderDate).toLocaleDateString('fr-FR')}` : ''}`
+                            ? `${fournisseur.nom} : ${stats.activeOrders} cde(s) active(s) · Total commandé : ${formatMAD(stats.totalOrderedAmount)} (Engagé : ${formatMAD(stats.totalCommittedAmount)})${stats.completedOrders > 0 ? ` · Cdes réceptionnées/facturées : ${formatMAD(stats.receivedOrInvoicedAmount)}` : ''}${stats.latestOrderDate ? ` · Dernière : ${new Date(stats.latestOrderDate).toLocaleDateString('fr-FR')}` : ''}`
                             : `Consulter les bons de commande de ${fournisseur.nom}`
                         }
                         aria-label={`Voir les commandes de ${fournisseur.nom}`}

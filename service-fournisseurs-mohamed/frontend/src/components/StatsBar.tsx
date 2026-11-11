@@ -1,29 +1,21 @@
 import React from 'react';
 import { Users, CheckCircle2, XCircle, Percent, Star } from 'lucide-react';
-import { Fournisseur } from '../types/fournisseur';
-import { computeSupplierRating } from '../utils/scoring';
+import { FournisseurStats } from '../types/fournisseur';
 
 interface StatsBarProps {
-  fournisseurs: Fournisseur[];
+  stats: FournisseurStats;
+  avgRating?: number | null;
   currentStatusFilter: 'all' | 'active' | 'inactive';
   onSelectStatusFilter: (status: 'all' | 'active' | 'inactive') => void;
 }
 
 export const StatsBar: React.FC<StatsBarProps> = ({
-  fournisseurs,
+  stats,
+  avgRating = null,
   currentStatusFilter,
   onSelectStatusFilter,
 }) => {
-  const total = fournisseurs.length;
-  const actifs = fournisseurs.filter((f) => f.actif).length;
-  const inactifs = total - actifs;
-  const tauxActif = total > 0 ? Math.round((actifs / total) * 100) : 0;
-  const avgRating =
-    total > 0
-      ? (
-          fournisseurs.reduce((acc, f) => acc + computeSupplierRating(f).score, 0) / total
-        ).toFixed(1)
-      : '0.0';
+  const { total, actifs, inactifs, tauxEligibilite } = stats;
 
   const cardBase =
     'group relative rounded-xl border p-5 transition-all duration-200 cursor-pointer active:scale-[0.98]';
@@ -129,10 +121,12 @@ export const StatsBar: React.FC<StatsBarProps> = ({
             Taux d'Éligibilité
           </span>
           <div className="flex items-center space-x-1.5">
-            <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 flex items-center space-x-1">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span>{avgRating}</span>
-            </span>
+            {avgRating !== null && (
+              <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 flex items-center space-x-1">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                <span>{avgRating.toFixed(1)}</span>
+              </span>
+            )}
             <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center border border-teal-100 dark:border-teal-900/60">
               <Percent className="w-4.5 h-4.5" />
             </div>
@@ -140,16 +134,18 @@ export const StatsBar: React.FC<StatsBarProps> = ({
         </div>
         <div className="flex items-end justify-between">
           <span className="text-3xl font-extrabold text-teal-700 dark:text-teal-400 tracking-tight animate-count-up">
-            {tauxActif}%
+            {tauxEligibilite}%
           </span>
           <span className="text-[11px] font-medium text-teal-600/70 dark:text-teal-400/70 pb-1">
-            {actifs} sur {total} · Score moy. {avgRating}★
+            {avgRating !== null
+              ? `${actifs} sur ${total} · Score moy. ${avgRating.toFixed(1)}★`
+              : `${actifs} sur ${total} fournisseurs`}
           </span>
         </div>
         <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
           <div
             className="bg-gradient-to-r from-teal-600 to-emerald-500 h-1.5 rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${tauxActif}%` }}
+            style={{ width: `${tauxEligibilite}%` }}
           />
         </div>
       </div>
