@@ -12,6 +12,8 @@ import com.procuraflow.fournisseurs.client.CommandesClient;
 import com.procuraflow.fournisseurs.dto.CommandeSummaryResponse;
 import com.procuraflow.fournisseurs.dto.FournisseurRequest;
 import com.procuraflow.fournisseurs.dto.FournisseurResponse;
+import com.procuraflow.fournisseurs.dto.FournisseurStatsResponse;
+import com.procuraflow.fournisseurs.dto.PageResponse;
 import com.procuraflow.fournisseurs.entity.Fournisseur;
 import com.procuraflow.fournisseurs.exception.DuplicateEmailException;
 import com.procuraflow.fournisseurs.exception.FournisseurNotFoundException;
@@ -27,6 +29,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -187,6 +193,26 @@ class FournisseurServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void listFournisseurs_withSearchVilleAndSort_shouldApplyRequestedSort() {
+        Fournisseur f1 = buildEntity(2L, "Zeta", "z@fes.ma", true);
+        when(fournisseurRepository.findAll(any(Specification.class), any(Sort.class)))
+                .thenReturn(List.of(f1));
+
+        List<FournisseurResponse> result = fournisseurService.listFournisseurs(
+                null, "fes", null, null, "Fès", true, "nom,desc"
+        );
+
+        ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
+        verify(fournisseurRepository).findAll(any(Specification.class), sortCaptor.capture());
+        Sort.Order nomOrder = sortCaptor.getValue().getOrderFor("nom");
+        assertThat(nomOrder).isNotNull();
+        assertThat(nomOrder.getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(nomOrder.isIgnoreCase()).isTrue();
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
     void getCommandesByFournisseurId_shouldVerifySupplierExistsAndCallCommandesClient() {
         when(fournisseurRepository.existsById(12L)).thenReturn(true);
         List<CommandeSummaryResponse> expectedOrders = List.of(
@@ -210,6 +236,85 @@ class FournisseurServiceTest {
                 .isInstanceOf(FournisseurNotFoundException.class);
 
         verify(commandesClient, never()).getCommandesByFournisseurId(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void listFournisseursPaginated_shouldDefaultSortByNomAscWithIdTieBreakerAndMapMetadata() {
+        Fournisseur f1 = buildEntity(1L, "Alpha Industriel", "alpha@example.com", true);
+        Fournisseur f2 = buildEntity(2L, "Zeta Logistique", "zeta@example.com", true);
+        Pageable expectedPageable = PageRequest.of(0, 10);
+        Page<Fournisseur> repoPage = new PageImpl<>(List.of(f1, f2), expectedPageable, 24L);
+
+        when(fournisseurRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(repoPage);
+
+        PageResponse<FournisseurResponse> result = fournisseurService.listFournisseursPaginated(
+                null, "Industriel", null, null, null, true, 0, 10, null
+        );
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(fournisseurRepository).findAll(any(Specification.class), pageableCaptor.capture());
+
+        Pageable captured = pageableCaptor.getValue();
+        assertThat(captured.getPageNumber()).isEqualTo(0);
+        assertThat(captured.getPageSize()).isEqualTo(10);
+        Sort.Order nomOrder = captured.getSort().getOrderFor("nom");
+        Sort.Order idOrder = captured.getSort().getOrderFor("id");
+        assertThat(nomOrder).isNotNull();
+        assertThat(nomOrder.getDirection()).isEqualTo(Sort.Direction.ASC);
+        assertThat(nomOrder.isIgnoreCase()).isTrue();
+        assertThat(idOrder).isNotNull();
+        assertThat(idOrder.getDirection()).isEqualTo(Sort.Direction.ASC);
+
+        assertThat(result.content()).hasSize(2);
+        assertThat(result.page()).isZero();
+        assertThat(result.size()).isEqualTo(10);
+        assertThat(result.totalElements()).isEqualTo(24L);
+        assertThat(result.totalPages()).isEqualTo(3);
+        assertThat(result.first()).isTrue();
+        assertThat(result.last()).isFalse();
+        assertThat(result.empty()).isFalse();
+    }
+
+    @Test
+    void listFournisseursPaginated_shouldRejectInvalidPageSizeAndSort() {
+        assertThatThrownBy(() -> fournisseurService.listFournisseursPaginated(
+                null, null, null, null, null, true, -1, 10, "nom,asc"
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> fournisseurService.listFournisseursPaginated(
+                null, null, null, null, null, true, 0, 0, "nom,asc"
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> fournisseurService.listFournisseursPaginated(
+                null, null, null, null, null, true, 0, 51, "nom,asc"
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> fournisseurService.listFournisseursPaginated(
+                null, null, null, null, null, true, 0, 10, "motDePasse,asc"
+        )).isInstanceOf(IllegalArgumentException.class);
+
+        verify(fournisseurRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getGlobalStats_shouldComputeCountsEligibilityAndSortedNormalizedCities() {
+        when(fournisseurRepository.count()).thenReturn(15L);
+        when(fournisseurRepository.countByActifTrue()).thenReturn(12L);
+        when(fournisseurRepository.findDistinctNonNullAdresses()).thenReturn(List.of(
+                "Avenue Hassan II, Fes, Maroc",
+                "Zone Industrielle, Casablanca",
+                "Quartier Administratif, Agadir"
+        ));
+
+        FournisseurStatsResponse stats = fournisseurService.getGlobalStats();
+
+        assertThat(stats.total()).isEqualTo(15L);
+        assertThat(stats.actifs()).isEqualTo(12L);
+        assertThat(stats.inactifs()).isEqualTo(3L);
+        assertThat(stats.tauxEligibilite()).isEqualTo(80);
+        assertThat(stats.villes()).containsExactly("Agadir", "Casablanca", "Fès");
     }
 
     private static Fournisseur buildEntity(Long id, String nom, String email, boolean actif) {

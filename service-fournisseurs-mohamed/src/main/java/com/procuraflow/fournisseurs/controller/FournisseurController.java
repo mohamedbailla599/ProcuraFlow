@@ -4,6 +4,8 @@ import com.procuraflow.fournisseurs.dto.ApiErrorResponse;
 import com.procuraflow.fournisseurs.dto.CommandeSummaryResponse;
 import com.procuraflow.fournisseurs.dto.FournisseurRequest;
 import com.procuraflow.fournisseurs.dto.FournisseurResponse;
+import com.procuraflow.fournisseurs.dto.FournisseurStatsResponse;
+import com.procuraflow.fournisseurs.dto.PageResponse;
 import com.procuraflow.fournisseurs.service.FournisseurService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,6 +15,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import java.net.URI;
 import java.util.List;
@@ -67,10 +71,10 @@ public class FournisseurController {
         return ResponseEntity.created(location).body(created);
     }
 
-    @GetMapping
+    @GetMapping(params = {"!page", "!size"})
     @Operation(
-            summary = "Lister les fournisseurs",
-            description = "Retourne la liste des fournisseurs. Par défaut, seuls les fournisseurs actifs sont retournés (conformément au contrat d'intégration), sauf si actif=false ou includeInactive=true est précisé."
+            summary = "Lister les fournisseurs (format tableau complet)",
+            description = "Retourne la liste des fournisseurs sans pagination (utilisé par les autres microservices conformément au contrat d'intégration). Par défaut, seuls les fournisseurs actifs sont retournés, sauf si actif=false ou includeInactive=true est précisé."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Liste des fournisseurs récupérée avec succès"),
@@ -81,22 +85,96 @@ public class FournisseurController {
             @Parameter(description = "Filtrer par statut actif (true ou false)")
             @RequestParam(name = "actif", required = false) Boolean actif,
 
+            @Parameter(description = "Recherche texte libre (nom, email, téléphone ou adresse)")
+            @RequestParam(name = "search", required = false) String search,
+
             @Parameter(description = "Filtrer par nom (recherche partielle insensible à la casse)")
             @RequestParam(name = "nom", required = false) String nom,
 
             @Parameter(description = "Filtrer par adresse e-mail (recherche partielle insensible à la casse)")
             @RequestParam(name = "email", required = false) String email,
 
+            @Parameter(description = "Filtrer par ville dans l'adresse")
+            @RequestParam(name = "ville", required = false) String ville,
+
             @Parameter(description = "Inclure les fournisseurs inactifs lorsque le filtre 'actif' n'est pas spécifié")
-            @RequestParam(name = "includeInactive", required = false, defaultValue = "false") Boolean includeInactive
+            @RequestParam(name = "includeInactive", required = false, defaultValue = "false") Boolean includeInactive,
+
+            @Parameter(description = "Critère de tri (ex: nom,asc | nom,desc | createdAt,desc | actif,desc)")
+            @RequestParam(name = "sort", required = false) String sort
     ) {
-        List<FournisseurResponse> fournisseurs = fournisseurService.listFournisseurs(
-                actif,
-                nom,
-                email,
-                includeInactive
-        );
+        List<FournisseurResponse> fournisseurs = (search != null || ville != null || sort != null)
+                ? fournisseurService.listFournisseurs(actif, search, nom, email, ville, includeInactive, sort)
+                : fournisseurService.listFournisseurs(actif, nom, email, includeInactive);
         return ResponseEntity.ok(fournisseurs);
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "Lister les fournisseurs avec pagination, recherche et tri côté serveur",
+            description = "Retourne une page de fournisseurs avec métadonnées de pagination (totalElements, totalPages, page, size). Recherche, filtres et tri sont appliqués avant la pagination. Taille par défaut : 10, maximum autorisé : 50."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page des fournisseurs récupérée avec succès"),
+            @ApiResponse(responseCode = "400", description = "Paramètres de pagination, filtrage ou tri invalides",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    public ResponseEntity<PageResponse<FournisseurResponse>> listFournisseursPaginated(
+            @Parameter(description = "Filtrer par statut actif (true ou false)")
+            @RequestParam(name = "actif", required = false) Boolean actif,
+
+            @Parameter(description = "Recherche textuelle globale sur nom, email, téléphone et adresse")
+            @RequestParam(name = "search", required = false) String search,
+
+            @Parameter(description = "Filtrer par nom (recherche partielle insensible à la casse)")
+            @RequestParam(name = "nom", required = false) String nom,
+
+            @Parameter(description = "Filtrer par adresse e-mail (recherche partielle insensible à la casse)")
+            @RequestParam(name = "email", required = false) String email,
+
+            @Parameter(description = "Filtrer par ville dans l'adresse")
+            @RequestParam(name = "ville", required = false) String ville,
+
+            @Parameter(description = "Inclure les fournisseurs inactifs lorsque le filtre 'actif' n'est pas spécifié")
+            @RequestParam(name = "includeInactive", required = false, defaultValue = "false") Boolean includeInactive,
+
+            @Parameter(description = "Numéro de page (0-indexé)", example = "0")
+            @RequestParam(name = "page", required = false, defaultValue = "0")
+            @Min(value = 0, message = "Le numéro de page doit être supérieur ou égal à 0.")
+            int page,
+
+            @Parameter(description = "Taille de page (1 à 50, défaut 10)", example = "10")
+            @RequestParam(name = "size", required = false, defaultValue = "10")
+            @Min(value = 1, message = "La taille de page doit être au moins 1.")
+            @Max(value = 50, message = "La taille de page maximale autorisée est 50.")
+            int size,
+
+            @Parameter(description = "Critère de tri sous forme champ,direction (défaut nom,asc)", example = "nom,asc")
+            @RequestParam(name = "sort", required = false, defaultValue = "nom,asc") String sort
+    ) {
+        return ResponseEntity.ok(
+                fournisseurService.listFournisseursPaginated(
+                        actif,
+                        search,
+                        nom,
+                        email,
+                        ville,
+                        includeInactive,
+                        page,
+                        size,
+                        sort
+                )
+        );
+    }
+
+    @GetMapping("/stats")
+    @Operation(
+            summary = "Statistiques globales du catalogue fournisseurs",
+            description = "Retourne les indicateurs globaux (total, actifs, inactifs, taux d'éligibilité, villes distinctes) sur l'ensemble du référentiel."
+    )
+    @ApiResponse(responseCode = "200", description = "Statistiques globales récupérées avec succès")
+    public ResponseEntity<FournisseurStatsResponse> getGlobalStats() {
+        return ResponseEntity.ok(fournisseurService.getGlobalStats());
     }
 
     @GetMapping("/{id}")

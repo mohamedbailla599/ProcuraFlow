@@ -12,7 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.procuraflow.fournisseurs.dto.FournisseurRequest;
 import com.procuraflow.fournisseurs.dto.FournisseurResponse;
+import com.procuraflow.fournisseurs.entity.Fournisseur;
 import com.procuraflow.fournisseurs.repository.FournisseurRepository;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,5 +146,140 @@ class FournisseurIntegrationTest {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
+    void paginatedListAndGlobalStats_shouldFilterAndSortBeforePaginationAndRespectLimits() throws Exception {
+        List<Fournisseur> seeds = List.of(
+                createEntity("Zeta Transport", "zeta@procuraflow.ma", "Boulevard Zerktouni, Casablanca", true),
+                createEntity("alpha Fournitures", "alpha@procuraflow.ma", "Zone Industrielle, Agadir", true),
+                createEntity("Beta Textiles", "beta@procuraflow.ma", "Avenue Hassan II, Fès", true),
+                createEntity("Delta Energies", "delta@procuraflow.ma", "Quartier Industriel, Fes", true),
+                createEntity("Epsilon Medical", "epsilon@procuraflow.ma", "Avenue Mohammed V, Rabat", true),
+                createEntity("Gamma Papeterie", "gamma@procuraflow.ma", "Zone Franche, Tanger", true),
+                createEntity("Iota Cables", "iota@procuraflow.ma", "Rue de Paris, Casablanca", true),
+                createEntity("Kappa Chimie", "kappa@procuraflow.ma", "Boulevard Anfa, Casablanca", true),
+                createEntity("Lambda Securite", "lambda@procuraflow.ma", "Avenue Allal El Fassi, Rabat", true),
+                createEntity("Mu Mobilier", "mu@procuraflow.ma", "Quartier Sidi Ghanem, Marrakech", true),
+                createEntity("Nu Packaging", "nu@procuraflow.ma", "Zone Tassila, Agadir", true),
+                createEntity("Omega Outillage", "omega@procuraflow.ma", "Boulevard Pasteur, Tanger", true),
+                createEntity("Theta Archives", "theta@procuraflow.ma", "Quartier Agdal, Rabat", false),
+                createEntity("Sigma Suspendu", "sigma@procuraflow.ma", "Technopolis, Salé", false)
+        );
+        fournisseurRepository.saveAllAndFlush(seeds);
+
+        // Page 0 size 10 with default sort nom,asc (case-insensitive) over all statuses
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("includeInactive", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(14))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(false))
+                .andExpect(jsonPath("$.content.length()").value(10))
+                .andExpect(jsonPath("$.content[0].nom").value("alpha Fournitures"))
+                .andExpect(jsonPath("$.content[1].nom").value("Beta Textiles"))
+                .andExpect(jsonPath("$.content[9].nom").value("Nu Packaging"));
+
+        // Page 1 returns remaining 4 sorted items ending with Zeta Transport
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .param("includeInactive", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalElements").value(14))
+                .andExpect(jsonPath("$.first").value(false))
+                .andExpect(jsonPath("$.last").value(true))
+                .andExpect(jsonPath("$.content.length()").value(4))
+                .andExpect(jsonPath("$.content[0].nom").value("Omega Outillage"))
+                .andExpect(jsonPath("$.content[3].nom").value("Zeta Transport"));
+
+        // Sorting nom,desc happens globally before slicing
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "25")
+                        .param("sort", "nom,desc")
+                        .param("includeInactive", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.content.length()").value(14))
+                .andExpect(jsonPath("$.content[0].nom").value("Zeta Transport"))
+                .andExpect(jsonPath("$.content[13].nom").value("alpha Fournitures"));
+
+        // Filtering (search & accent-insensitive ville) happens before pagination
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("ville", "Fès")
+                        .param("includeInactive", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.content[0].nom").value("Beta Textiles"))
+                .andExpect(jsonPath("$.content[1].nom").value("Delta Energies"));
+
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("actif", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].nom").value("Sigma Suspendu"))
+                .andExpect(jsonPath("$.content[1].nom").value("Theta Archives"));
+
+        // Size > 50 and unknown sort rejected with 400
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "51"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "unknownCol,asc"))
+                .andExpect(status().isBadRequest());
+
+        // Global stats endpoint reflects entire DB regardless of current page
+        mockMvc.perform(get("/api/fournisseurs/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(14))
+                .andExpect(jsonPath("$.actifs").value(12))
+                .andExpect(jsonPath("$.inactifs").value(2))
+                .andExpect(jsonPath("$.tauxEligibilite").value(86))
+                .andExpect(jsonPath("$.villes.length()").isNumber());
+
+        // Legacy unpaginated endpoint still returns JSON array for existing microservice integrations
+        mockMvc.perform(get("/api/fournisseurs").param("includeInactive", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(14));
+
+        // Unpaginated endpoint also supports search, ville and sort for Map View and full Exports
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("includeInactive", "true")
+                        .param("ville", "Fès")
+                        .param("sort", "nom,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].nom").value("Delta Energies"))
+                .andExpect(jsonPath("$[1].nom").value("Beta Textiles"));
+
+        // OpenAPI docs remain healthy with both paginated & unpaginated routes
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/fournisseurs']").exists())
+                .andExpect(jsonPath("$.paths['/api/fournisseurs/stats']").exists());
+    }
+
+    private static Fournisseur createEntity(String nom, String email, String adresse, boolean actif) {
+        Fournisseur f = new Fournisseur(nom, email, "+212500000000", adresse);
+        f.setActif(actif);
+        return f;
     }
 }

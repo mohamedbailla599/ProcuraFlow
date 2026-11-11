@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.procuraflow.fournisseurs.dto.CommandeSummaryResponse;
 import com.procuraflow.fournisseurs.dto.FournisseurRequest;
 import com.procuraflow.fournisseurs.dto.FournisseurResponse;
+import com.procuraflow.fournisseurs.dto.FournisseurStatsResponse;
+import com.procuraflow.fournisseurs.dto.PageResponse;
 import com.procuraflow.fournisseurs.exception.DownstreamBadGatewayException;
 import com.procuraflow.fournisseurs.exception.DownstreamServiceUnavailableException;
 import com.procuraflow.fournisseurs.exception.DuplicateEmailException;
@@ -282,5 +284,79 @@ class FournisseurControllerTest {
                 .andExpect(jsonPath("$.status").value(502))
                 .andExpect(jsonPath("$.error").value("BAD_GATEWAY"))
                 .andExpect(jsonPath("$.path").value("/api/fournisseurs/12/commandes"));
+    }
+
+    @Test
+    void listFournisseursPaginated_shouldReturnPageMetadataAndContent() throws Exception {
+        FournisseurResponse f1 = new FournisseurResponse(
+                1L, "Atlas Fournitures", "contact@atlas.ma", "+212528000000", "Agadir", true, SAMPLE_TIME, SAMPLE_TIME
+        );
+        PageResponse<FournisseurResponse> page = new PageResponse<>(
+                List.of(f1), 0, 10, 25L, 3, true, false, false
+        );
+
+        when(fournisseurService.listFournisseursPaginated(
+                true, "Atlas", null, null, "Agadir", false, 0, 10, "nom,asc"
+        )).thenReturn(page);
+
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "nom,asc")
+                        .param("search", "Atlas")
+                        .param("ville", "Agadir")
+                        .param("actif", "true")
+                        .param("includeInactive", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].nom").value("Atlas Fournitures"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.totalElements").value(25))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(false))
+                .andExpect(jsonPath("$.empty").value(false));
+    }
+
+    @Test
+    void listFournisseursPaginated_shouldReturn400WhenSizeExceedsMax50() throws Exception {
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "51"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void listFournisseursPaginated_shouldReturn400WhenSortFieldIsInvalid() throws Exception {
+        when(fournisseurService.listFournisseursPaginated(
+                null, null, null, null, null, false, 0, 10, "invalidField,asc"
+        )).thenThrow(new IllegalArgumentException("Champ de tri non autorisé : invalidField"));
+
+        mockMvc.perform(get("/api/fournisseurs")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "invalidField,asc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void getGlobalStats_shouldReturn200WithCatalogMetrics() throws Exception {
+        FournisseurStatsResponse stats = new FournisseurStatsResponse(
+                128L, 110L, 18L, 86, List.of("Agadir", "Casablanca", "Rabat")
+        );
+        when(fournisseurService.getGlobalStats()).thenReturn(stats);
+
+        mockMvc.perform(get("/api/fournisseurs/stats"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(128))
+                .andExpect(jsonPath("$.actifs").value(110))
+                .andExpect(jsonPath("$.inactifs").value(18))
+                .andExpect(jsonPath("$.tauxEligibilite").value(86))
+                .andExpect(jsonPath("$.villes[0]").value("Agadir"))
+                .andExpect(jsonPath("$.villes[1]").value("Casablanca"));
     }
 }
