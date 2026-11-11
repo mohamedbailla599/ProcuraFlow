@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Wifi, WifiOff, Sparkles, RefreshCw, Sun, Moon } from 'lucide-react';
+import { Building2, Wifi, WifiOff, Sparkles, RefreshCw, Sun, Moon, Search } from 'lucide-react';
 
 interface NavbarProps {
   isBackendHealthy: boolean | null;
@@ -9,6 +9,7 @@ interface NavbarProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onOpenCreateModal?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onRefreshHealth,
   isDarkMode,
   onToggleDarkMode,
+  onOpenCommandPalette,
 }) => {
   return (
     <header className="sticky top-0 z-30 h-14 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors duration-200">
@@ -45,6 +47,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Actions and Status */}
           <div className="flex items-center space-x-2.5">
+            {/* Quick Command Palette Button (Ctrl + K) */}
+            {onOpenCommandPalette && (
+              <button
+                type="button"
+                onClick={onOpenCommandPalette}
+                title="Ouvrir la palette de commandes rapides (Ctrl + K)"
+                aria-label="Palette de commandes"
+                className="hidden sm:inline-flex items-center space-x-2 h-8 px-2.5 rounded-lg border border-slate-200/90 dark:border-slate-700/90 bg-slate-100/70 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-teal-400/60 dark:hover:border-teal-500/60 hover:bg-white dark:hover:bg-slate-750 transition-all shadow-2xs active:scale-95 group cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
+                <span className="font-medium text-[11px]">Rechercher...</span>
+                <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-slate-300/80 dark:border-slate-600 text-slate-600 dark:text-slate-300 shadow-2xs">
+                  Ctrl K
+                </kbd>
+              </button>
+            )}
+
             {/* Animated Interactive Theme Toggle Switch */}
             <button
               type="button"
