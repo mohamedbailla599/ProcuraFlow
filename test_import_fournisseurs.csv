@@ -1,0 +1,9 @@
+nom,email,telephone,adresse,note
+"Maghreb Informatique SARL","contact@maghreb-informatique.ma","+212 5 22 40 50 60","Boulevard Zerktouni, Casablanca",4.8
+"Tanger Logistique Express","direction@tanger-logistique.ma","+212 5 39 32 10 00","Zone Franche d'Exportation, Tanger",4.6
+"Marrakech Mobiliers Bureau","commercial@marrakech-mobiliers.ma","+212 5 24 43 21 00","Quartier Industriel Sidi Ghanem, Marrakech",4.4
+"Atlas Fournitures Industrielles","contact@atlas-fournitures.example","+212 5 28 84 00 00","Zone Industrielle Tassila, Agadir",4.7
+"Fès Solutions Énergies","contact@fes-energies.ma","+212 5 35 62 44 88","Avenue Hassan II, Fès",4.3
+"Fès Solutions Énergies (Copie)","contact@fes-energies.ma","+212 5 35 62 44 88","Avenue Hassan II, Fès",4.1
+"Oujda Fournitures Médicales","commercial-sans-arobase.ma","+212 5 36 68 12 34","Boulevard Mohammed V, Oujda",3.8
+
