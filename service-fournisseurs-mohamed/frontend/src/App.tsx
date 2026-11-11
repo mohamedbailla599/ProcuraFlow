@@ -1,60 +1,115 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar';
 import { StatsBar } from './components/StatsBar';
 import { FilterBar, SortOption } from './components/FilterBar';
 import { FournisseurTable } from './components/FournisseurTable';
 import { FournisseurCards } from './components/FournisseurCards';
-import { FournisseurModal, MOROCCAN_CITIES } from './components/FournisseurModal';
+import { PaginationBar } from './components/PaginationBar';
+import { FournisseurModal } from './components/FournisseurModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { CommandesDrawer } from './components/CommandesDrawer';
+import { CommandPalette } from './components/CommandPalette';
+import { ImportModal } from './components/ImportModal';
 import { Toast, ToastMessage } from './components/Toast';
-import { Fournisseur, FournisseurRequest, FilterParams } from './types/fournisseur';
+import { FilterParams, Fournisseur, FournisseurRequest, FournisseurStats } from './types/fournisseur';
 import { computeSupplierRating, saveSupplierRating } from './utils/scoring';
 import { computeOrderStats, SupplierOrderStats } from './utils/orderStats';
+import { exportCataloguePDF } from './utils/pdfExport';
+import {
+  DEFAULT_PAGE_SIZE,
+  PageSizeOption,
+  computeDemoGlobalStats,
+  filterAndSortSuppliers,
+  getEntranceWaveDurationMs,
+  mapSortOptionToApiSort,
+  paginateDemoSuppliers,
+  prefersReducedMotion,
+} from './utils/pagination';
 import {
   fournisseurApi,
   INITIAL_MOCK_FOURNISSEURS,
   MOCK_COMMANDES,
 } from './api/fournisseurApi';
 
-// Helper to extract city name from address
-const extractCity = (adresse?: string | null): string => {
-  if (!adresse) return '';
-  const normalized = adresse.trim();
-  for (const city of MOROCCAN_CITIES) {
-    const regex = new RegExp(`\\b${city}\\b`, 'i');
-    if (regex.test(normalized)) {
-      return city;
-    }
-  }
-  const parts = normalized.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    const lastPart = parts[parts.length - 1];
-    if (['maroc', 'france', 'morocco'].includes(lastPart.toLowerCase()) && parts.length >= 2) {
-      return parts[parts.length - 2].replace(/\d+/g, '').trim();
-    }
-    return lastPart.replace(/\d+/g, '').trim();
-  }
-  return parts[0] || '';
+const FournisseurMap = lazy(() =>
+  import('./components/FournisseurMap').then((m) => ({ default: m.FournisseurMap }))
+);
+
+interface SupplierQueryState {
+  page: number;
+  size: PageSizeOption;
+  statusFilter: 'all' | 'active' | 'inactive';
+  sortBy: SortOption;
+  cityFilter: string;
+  appliedSearch: string;
+}
+
+function buildApiFilterParams(q: Pick<SupplierQueryState, 'statusFilter' | 'sortBy' | 'cityFilter' | 'appliedSearch'>): FilterParams {
+  return {
+    sort: mapSortOptionToApiSort(q.sortBy),
+    search: q.appliedSearch || undefined,
+    ville: q.cityFilter !== 'all' ? q.cityFilter : undefined,
+    actif:
+      q.statusFilter === 'active'
+        ? true
+        : q.statusFilter === 'inactive'
+        ? false
+        : undefined,
+    includeInactive: q.statusFilter === 'all' ? true : undefined,
+  };
+}
+
+const EMPTY_STATS: FournisseurStats = {
+  total: 0,
+  actifs: 0,
+  inactifs: 0,
+  tauxEligibilite: 0,
+  villes: [],
 };
 
 export default function App() {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
-  const [allFournisseurs, setAllFournisseurs] = useState<Fournisseur[]>([]);
+  const [mapFournisseurs, setMapFournisseurs] = useState<Fournisseur[]>([]);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importExistingPool, setImportExistingPool] = useState<Fournisseur[] | null>(null);
   const [mockStore, setMockStore] = useState<Fournisseur[]>(INITIAL_MOCK_FOURNISSEURS);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean | null>(null);
   const [demoMode, setDemoMode] = useState<boolean>(false);
 
-  // View mode (table or grid)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  // View mode (table, grid, or interactive map)
+  const [viewMode, setViewMode] = useState<'table' | 'grid' | 'map'>('table');
 
-  // Filters & Sorting
+  // Unified query & pagination state (atomic updates prevent duplicate API calls)
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
-  const [cityFilter, setCityFilter] = useState<string>('all');
-  const [commandCounts, setCommandCounts] = useState<Record<number, number>>({});
+  const [queryState, setQueryState] = useState<SupplierQueryState>({
+    page: 0,
+    size: DEFAULT_PAGE_SIZE,
+    statusFilter: 'all',
+    sortBy: 'name-asc',
+    cityFilter: 'all',
+    appliedSearch: '',
+  });
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [globalStats, setGlobalStats] = useState<FournisseurStats>(EMPTY_STATS);
+  const [demoAvgRating, setDemoAvgRating] = useState<number | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [statsTick, setStatsTick] = useState(0);
+
+  // Progressive entrance animation state
+  const [animationState, setAnimationState] = useState<{
+    batchKey: number;
+    active: boolean;
+  }>({ batchKey: 0, active: false });
+  const batchCounterRef = useRef(0);
+  const animationTimerRef = useRef<number | null>(null);
+  const requestSeqRef = useRef(0);
+  const mapRequestSeqRef = useRef(0);
+  const fetchedOrderStatsIdsRef = useRef<Set<number>>(new Set());
+
   const [orderStats, setOrderStats] = useState<Record<number, SupplierOrderStats>>({});
 
   // Modals & Drawers
@@ -62,6 +117,8 @@ export default function App() {
   const [fournisseurToEdit, setFournisseurToEdit] = useState<Fournisseur | null>(null);
   const [selectedFournisseur, setSelectedFournisseur] = useState<Fournisseur | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     fournisseur: Fournisseur | null;
@@ -133,9 +190,9 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const showToast = (type: 'success' | 'error', text: string) => {
+  const showToast = useCallback((type: 'success' | 'error', text: string) => {
     setToast({ id: String(Date.now()), type, text });
-  };
+  }, []);
 
   // Check Spring Boot backend health
   const checkBackendHealth = useCallback(async () => {
@@ -147,172 +204,281 @@ export default function App() {
     }
   }, []);
 
-  // Dynamic available cities extracted from existing suppliers
-  const availableCities = useMemo(() => {
-    const pool = demoMode ? mockStore : allFournisseurs.length > 0 ? allFournisseurs : fournisseurs;
-    const citiesSet = new Set<string>();
-    pool.forEach((f) => {
-      const city = extractCity(f.adresse);
-      if (city && city.length > 1) {
-        citiesSet.add(city);
+  // Debounce free-text search and reset to page 0 atomically when query changes
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const trimmed = searchTerm.trim();
+      setQueryState((prev) =>
+        prev.appliedSearch === trimmed ? prev : { ...prev, appliedSearch: trimmed, page: 0 }
+      );
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Clean up any active animation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (animationTimerRef.current !== null) {
+        window.clearTimeout(animationTimerRef.current);
       }
-    });
-    return Array.from(citiesSet).sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [demoMode, mockStore, allFournisseurs, fournisseurs]);
+    };
+  }, []);
 
-  // Status counts for tabs
-  const currentPool = demoMode ? mockStore : allFournisseurs.length > 0 ? allFournisseurs : fournisseurs;
-  const totalCount = currentPool.length;
-  const activeCount = currentPool.filter((f) => f.actif).length;
-  const inactiveCount = currentPool.filter((f) => !f.actif).length;
+  const startEntranceAnimation = useCallback((itemCount: number) => {
+    if (animationTimerRef.current !== null) {
+      window.clearTimeout(animationTimerRef.current);
+      animationTimerRef.current = null;
+    }
 
-  // Sorting helper
-  const applySort = useCallback(
-    (list: Fournisseur[], sort: SortOption, counts: Record<number, number>) => {
-      const copy = [...list];
-      copy.sort((a, b) => {
-        switch (sort) {
-          case 'name-asc':
-            return a.nom.localeCompare(b.nom, 'fr');
-          case 'name-desc':
-            return b.nom.localeCompare(a.nom, 'fr');
-          case 'rating-desc': {
-            const scoreA = computeSupplierRating(a).score;
-            const scoreB = computeSupplierRating(b).score;
-            return scoreB - scoreA;
-          }
-          case 'commands-desc':
-            return (counts[b.id] || 0) - (counts[a.id] || 0);
-          case 'date-desc':
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          case 'date-asc':
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-          case 'id-asc':
-            return a.id - b.id;
-          default:
-            return 0;
-        }
-      });
-      return copy;
-    },
-    []
-  );
-
-  // Fetch suppliers list
-  const loadFournisseurs = useCallback(async () => {
-    setLoading(true);
-
-    if (demoMode) {
-      const counts: Record<number, number> = {};
-      const statsMap: Record<number, SupplierOrderStats> = {};
-      mockStore.forEach((f) => {
-        const list = MOCK_COMMANDES[f.id] || [];
-        counts[f.id] = list.length;
-        statsMap[f.id] = computeOrderStats(list);
-      });
-      setCommandCounts(counts);
-      setOrderStats(statsMap);
-
-      let filtered = [...mockStore];
-      if (statusFilter === 'active') {
-        filtered = filtered.filter((f) => f.actif);
-      } else if (statusFilter === 'inactive') {
-        filtered = filtered.filter((f) => !f.actif);
-      }
-      if (cityFilter !== 'all') {
-        filtered = filtered.filter(
-          (f) => extractCity(f.adresse).toLowerCase() === cityFilter.toLowerCase()
-        );
-      }
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase().trim();
-        filtered = filtered.filter(
-          (f) =>
-            f.nom.toLowerCase().includes(query) ||
-            f.email.toLowerCase().includes(query) ||
-            (f.telephone && f.telephone.toLowerCase().includes(query)) ||
-            (f.adresse && f.adresse.toLowerCase().includes(query))
-        );
-      }
-
-      setFournisseurs(applySort(filtered, sortBy, counts));
-      setLoading(false);
+    const nextBatch = ++batchCounterRef.current;
+    if (itemCount <= 0 || prefersReducedMotion()) {
+      setAnimationState({ batchKey: nextBatch, active: false });
       return;
     }
 
-    try {
-      const params: FilterParams = {};
-      if (statusFilter === 'active') {
-        params.actif = true;
-      } else if (statusFilter === 'inactive') {
-        params.actif = false;
-      } else {
-        params.includeInactive = true;
-      }
+    setAnimationState({ batchKey: nextBatch, active: true });
+    const durationMs = getEntranceWaveDurationMs(itemCount);
+    animationTimerRef.current = window.setTimeout(() => {
+      setAnimationState((prev) =>
+        prev.batchKey === nextBatch ? { ...prev, active: false } : prev
+      );
+      animationTimerRef.current = null;
+    }, durationMs);
+  }, []);
 
-      const [data, fullList] = await Promise.all([
-        fournisseurApi.getFournisseurs(params),
-        fournisseurApi.getFournisseurs({ includeInactive: true }),
-      ]);
+  const triggerReload = useCallback((includeStats = false) => {
+    setRefreshTick((t) => t + 1);
+    if (includeStats) {
+      setStatsTick((t) => t + 1);
+    }
+  }, []);
 
-      setAllFournisseurs(fullList);
+  // Atomic query setters (no duplicate API calls)
+  const handleStatusFilterChange = useCallback((nextStatus: 'all' | 'active' | 'inactive') => {
+    setQueryState((prev) =>
+      prev.statusFilter === nextStatus && prev.page === 0
+        ? prev
+        : { ...prev, statusFilter: nextStatus, page: 0 }
+    );
+  }, []);
 
-      // Background command count & purchasing statistics loading without blocking
-      fullList.forEach(async (f) => {
-        try {
-          const cmds = await fournisseurApi.getCommandes(f.id);
-          setCommandCounts((prev) => ({ ...prev, [f.id]: cmds.length }));
-          setOrderStats((prev) => ({ ...prev, [f.id]: computeOrderStats(cmds) }));
-        } catch {
-          // If microservice 8082 is down, ignore
+  const handleSortChange = useCallback((nextSort: SortOption) => {
+    setQueryState((prev) =>
+      prev.sortBy === nextSort && prev.page === 0 ? prev : { ...prev, sortBy: nextSort, page: 0 }
+    );
+  }, []);
+
+  const handleCityFilterChange = useCallback((nextCity: string) => {
+    setQueryState((prev) =>
+      prev.cityFilter === nextCity && prev.page === 0
+        ? prev
+        : { ...prev, cityFilter: nextCity, page: 0 }
+    );
+  }, []);
+
+  const handlePageSizeChange = useCallback((nextSize: PageSizeOption) => {
+    setQueryState((prev) =>
+      prev.size === nextSize && prev.page === 0 ? prev : { ...prev, size: nextSize, page: 0 }
+    );
+  }, []);
+
+  const handlePageChange = useCallback((nextPage: number) => {
+    setQueryState((prev) => (prev.page === nextPage ? prev : { ...prev, page: Math.max(0, nextPage) }));
+  }, []);
+
+  const handleClearAllFilters = useCallback(() => {
+    setSearchTerm('');
+    setQueryState((prev) => ({
+      ...prev,
+      page: 0,
+      statusFilter: 'all',
+      sortBy: 'name-asc',
+      cityFilter: 'all',
+      appliedSearch: '',
+    }));
+  }, []);
+
+  const handleToggleDemoMode = useCallback(() => {
+    setDemoMode((prev) => {
+      const next = !prev;
+      showToast('success', next ? 'Mode Démo activé.' : 'Mode API Réel activé.');
+      return next;
+    });
+    fetchedOrderStatsIdsRef.current.clear();
+    setQueryState((prev) => ({ ...prev, page: 0 }));
+    setStatsTick((t) => t + 1);
+  }, [showToast]);
+
+  // Fetch global stats (total, actives, inactives, eligibility rate, cities) independently from pagination
+  useEffect(() => {
+    if (demoMode) {
+      const { stats, avgRating } = computeDemoGlobalStats(mockStore);
+      setGlobalStats(stats);
+      setDemoAvgRating(avgRating);
+      return;
+    }
+
+    const controller = new AbortController();
+    setDemoAvgRating(null);
+    fournisseurApi
+      .getGlobalStats(controller.signal)
+      .then((stats) => {
+        if (!controller.signal.aborted) {
+          setGlobalStats(stats);
+        }
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted && err?.name !== 'AbortError') {
+          console.error('Failed to load global supplier stats:', err);
         }
       });
 
-      let filtered = data;
-      if (cityFilter !== 'all') {
-        filtered = filtered.filter(
-          (f) => extractCity(f.adresse).toLowerCase() === cityFilter.toLowerCase()
-        );
-      }
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase().trim();
-        filtered = filtered.filter(
-          (f) =>
-            f.nom.toLowerCase().includes(query) ||
-            f.email.toLowerCase().includes(query) ||
-            (f.telephone && f.telephone.toLowerCase().includes(query)) ||
-            (f.adresse && f.adresse.toLowerCase().includes(query))
-        );
+    return () => controller.abort();
+  }, [demoMode, mockStore, statsTick]);
+
+  // Fetch paginated suppliers (server-side or demo store) and trigger progressive entrance after arrival
+  useEffect(() => {
+    const seq = ++requestSeqRef.current;
+    const controller = new AbortController();
+    setLoading(true);
+    setPageError(null);
+
+    if (demoMode) {
+      const demoStatsMap: Record<number, SupplierOrderStats> = {};
+      mockStore.forEach((f) => {
+        demoStatsMap[f.id] = computeOrderStats(MOCK_COMMANDES[f.id] || []);
+      });
+      setOrderStats(demoStatsMap);
+
+      const pageResult = paginateDemoSuppliers(mockStore, {
+        page: queryState.page,
+        size: queryState.size,
+        sortBy: queryState.sortBy,
+        statusFilter: queryState.statusFilter,
+        searchTerm: queryState.appliedSearch,
+        cityFilter: queryState.cityFilter === 'all' ? '' : queryState.cityFilter,
+      });
+
+      if (pageResult.empty && pageResult.totalPages > 0 && queryState.page >= pageResult.totalPages) {
+        setQueryState((prev) => ({ ...prev, page: pageResult.totalPages - 1 }));
+        return () => controller.abort();
       }
 
-      setFournisseurs(applySort(filtered, sortBy, commandCounts));
-      setIsBackendHealthy(true);
-    } catch (err) {
-      console.error('Failed to load suppliers from backend:', err);
-      setIsBackendHealthy(false);
-      showToast(
-        'error',
-        'Backend Spring Boot inaccessible sur :8081. Vous pouvez basculer en "Mode Démo" pour tester l\'interface.'
-      );
-    } finally {
+      setFournisseurs(pageResult.content);
+      setTotalElements(pageResult.totalElements);
+      setTotalPages(pageResult.totalPages);
       setLoading(false);
+      startEntranceAnimation(pageResult.content.length);
+      return () => controller.abort();
     }
-  }, [demoMode, mockStore, statusFilter, searchTerm, cityFilter, sortBy, commandCounts, applySort]);
+
+    const apiParams = {
+      ...buildApiFilterParams(queryState),
+      page: queryState.page,
+      size: queryState.size,
+    };
+
+    fournisseurApi
+      .getFournisseursPage(apiParams, controller.signal)
+      .then((pageResult) => {
+        if (controller.signal.aborted || seq !== requestSeqRef.current) return;
+
+        const rawContent = Array.isArray(pageResult?.content) ? pageResult.content : [];
+        const safeContent =
+          queryState.sortBy === 'rating-desc'
+            ? [...rawContent].sort(
+                (a, b) => computeSupplierRating(b).score - computeSupplierRating(a).score
+              )
+            : rawContent;
+        const safeTotalPages = typeof pageResult?.totalPages === 'number' ? pageResult.totalPages : 0;
+        const safeTotalElements =
+          typeof pageResult?.totalElements === 'number' ? pageResult.totalElements : safeContent.length;
+
+        if (pageResult?.empty && safeTotalPages > 0 && queryState.page >= safeTotalPages) {
+          setQueryState((prev) => ({ ...prev, page: safeTotalPages - 1 }));
+          return;
+        }
+
+        setFournisseurs(safeContent);
+        setTotalElements(safeTotalElements);
+        setTotalPages(safeTotalPages);
+        setIsBackendHealthy(true);
+        setLoading(false);
+        startEntranceAnimation(safeContent.length);
+
+        // Lazy-load commandes summaries strictly for visible rows not yet cached (no refetch cascade)
+        const pendingSuppliers = safeContent.filter(
+          (f) => !fetchedOrderStatsIdsRef.current.has(f.id)
+        );
+        pendingSuppliers.forEach(async (f) => {
+          fetchedOrderStatsIdsRef.current.add(f.id);
+          try {
+            const cmds = await fournisseurApi.getCommandes(f.id);
+            if (controller.signal.aborted) return;
+            setOrderStats((prev) => ({ ...prev, [f.id]: computeOrderStats(cmds) }));
+          } catch {
+            // Commandes microservice may be unavailable; do not block supplier management
+            fetchedOrderStatsIdsRef.current.delete(f.id);
+          }
+        });
+      })
+      .catch((err) => {
+        if (controller.signal.aborted || err?.name === 'AbortError' || seq !== requestSeqRef.current) {
+          return;
+        }
+        console.error('Failed to load paginated suppliers from backend:', err);
+        setIsBackendHealthy(false);
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : 'Backend Spring Boot inaccessible sur :8081. Vous pouvez basculer en "Mode Démo" pour tester l\'interface.';
+        setPageError(msg);
+        setLoading(false);
+        showToast('error', msg);
+      });
+
+    return () => controller.abort();
+  }, [demoMode, mockStore, queryState, refreshTick, showToast, startEntranceAnimation]);
+
+  // Lazy-fetch full supplier list only if user opens ImportModal (for duplicate email checking)
+  useEffect(() => {
+    if (!isImportModalOpen || demoMode) {
+      setImportExistingPool(null);
+      return;
+    }
+    let cancelled = false;
+    fournisseurApi
+      .getFournisseurs({ includeInactive: true })
+      .then((list) => {
+        if (!cancelled) setImportExistingPool(list);
+      })
+      .catch(() => {
+        if (!cancelled) setImportExistingPool(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isImportModalOpen, demoMode]);
 
   useEffect(() => {
     checkBackendHealth();
   }, [checkBackendHealth]);
 
-  useEffect(() => {
-    loadFournisseurs();
-  }, [loadFournisseurs]);
-
-  // Global keyboard shortcut 'N' to open create modal
+  // Global keyboard shortcuts: 'N' to open create modal, 'Ctrl+K' / 'Cmd+K' for command palette
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle Command Palette
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // Quick add modal (only if palette/modal aren't open and user isn't in an input)
       if (
         (e.key === 'n' || e.key === 'N') &&
         !isModalOpen &&
+        !isCommandPaletteOpen &&
         document.activeElement?.tagName !== 'INPUT' &&
         document.activeElement?.tagName !== 'TEXTAREA'
       ) {
@@ -323,7 +489,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen]);
+  }, [isModalOpen, isCommandPaletteOpen]);
 
   // Handle Create or Update
   const handleSaveFournisseur = async (payload: FournisseurRequest) => {
@@ -374,7 +540,7 @@ export default function App() {
       }
       showToast('success', `Fournisseur "${payload.nom}" enregistré avec succès !`);
     }
-    loadFournisseurs();
+    triggerReload(true);
   };
 
   // Handle Deactivate / Reactivate with Custom Modal
@@ -412,7 +578,7 @@ export default function App() {
         await fournisseurApi.reactiverFournisseur(fournisseur.id);
         showToast('success', `Fournisseur "${fournisseur.nom}" réactivé.`);
       }
-      loadFournisseurs();
+      triggerReload(true);
     } catch {
       showToast('error', `Échec lors du changement de statut de ${fournisseur.nom}`);
     }
@@ -433,20 +599,203 @@ export default function App() {
     setIsDrawerOpen(true);
   };
 
+  // Lazily fetch all filtered & sorted suppliers ONLY when Map View is active (Table/Cards stay paginated)
+  useEffect(() => {
+    if (viewMode !== 'map') {
+      setMapFournisseurs([]);
+      setMapLoading(false);
+      return;
+    }
+
+    if (demoMode) {
+      setMapFournisseurs(
+        filterAndSortSuppliers(mockStore, {
+          sortBy: queryState.sortBy,
+          statusFilter: queryState.statusFilter,
+          searchTerm: queryState.appliedSearch,
+          cityFilter: queryState.cityFilter,
+        })
+      );
+      setMapLoading(false);
+      return;
+    }
+
+    const seq = ++mapRequestSeqRef.current;
+    const controller = new AbortController();
+    setMapLoading(true);
+
+    fournisseurApi
+      .getFournisseurs(buildApiFilterParams(queryState), controller.signal)
+      .then((raw) => {
+        if (controller.signal.aborted || seq !== mapRequestSeqRef.current) return;
+        const filtered = filterAndSortSuppliers(Array.isArray(raw) ? raw : [], {
+          sortBy: queryState.sortBy,
+          statusFilter: queryState.statusFilter,
+          searchTerm: queryState.appliedSearch,
+          cityFilter: queryState.cityFilter,
+        });
+        setMapFournisseurs(filtered);
+        setIsBackendHealthy(true);
+        setMapLoading(false);
+      })
+      .catch((err) => {
+        if (
+          controller.signal.aborted ||
+          err?.name === 'AbortError' ||
+          seq !== mapRequestSeqRef.current
+        ) {
+          return;
+        }
+        console.error('Failed to load map suppliers from backend:', err);
+        setMapFournisseurs([]);
+        showToast('error', 'Impossible de charger tous les fournisseurs sur la carte.');
+        setMapLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [
+    viewMode,
+    demoMode,
+    mockStore,
+    queryState.statusFilter,
+    queryState.sortBy,
+    queryState.cityFilter,
+    queryState.appliedSearch,
+    refreshTick,
+    showToast,
+  ]);
+
+  const fetchAllMatchingForExport = useCallback(async (): Promise<Fournisseur[]> => {
+    const effectiveSearch = searchTerm.trim();
+    const effectiveQuery = {
+      statusFilter: queryState.statusFilter,
+      sortBy: queryState.sortBy,
+      cityFilter: queryState.cityFilter,
+      appliedSearch: effectiveSearch,
+    };
+
+    if (demoMode) {
+      return filterAndSortSuppliers(mockStore, {
+        sortBy: effectiveQuery.sortBy,
+        statusFilter: effectiveQuery.statusFilter,
+        searchTerm: effectiveQuery.appliedSearch,
+        cityFilter: effectiveQuery.cityFilter,
+      });
+    }
+
+    if (
+      viewMode === 'map' &&
+      !mapLoading &&
+      effectiveSearch === queryState.appliedSearch &&
+      mapFournisseurs.length > 0
+    ) {
+      return mapFournisseurs;
+    }
+
+    const raw = await fournisseurApi.getFournisseurs(buildApiFilterParams(effectiveQuery));
+    return filterAndSortSuppliers(Array.isArray(raw) ? raw : [], {
+      sortBy: effectiveQuery.sortBy,
+      statusFilter: effectiveQuery.statusFilter,
+      searchTerm: effectiveQuery.appliedSearch,
+      cityFilter: effectiveQuery.cityFilter,
+    });
+  }, [
+    demoMode,
+    mockStore,
+    searchTerm,
+    queryState.statusFilter,
+    queryState.sortBy,
+    queryState.cityFilter,
+    queryState.appliedSearch,
+    viewMode,
+    mapLoading,
+    mapFournisseurs,
+  ]);
+
+  const handleExportCSV = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const list = await fetchAllMatchingForExport();
+      if (list.length === 0) {
+        showToast('error', 'Aucun fournisseur à exporter.');
+        return;
+      }
+      const headers = ['ID', 'Nom', 'Email', 'Telephone', 'Adresse', 'Statut', 'DateCreation'];
+      const rows = list.map((f) => [
+        f.id,
+        `"${f.nom.replace(/"/g, '""')}"`,
+        `"${f.email}"`,
+        `"${(f.telephone || '').replace(/"/g, '""')}"`,
+        `"${(f.adresse || '').replace(/"/g, '""')}"`,
+        f.actif ? 'Actif' : 'Inactif',
+        f.createdAt,
+      ]);
+      const csvBody = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', blobUrl);
+      link.setAttribute('download', `fournisseurs_procuraflow_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      showToast('success', `${list.length} fournisseur(s) exporté(s) en CSV.`);
+    } catch (err) {
+      console.error('Erreur lors de l’export CSV du catalogue:', err);
+      showToast('error', 'Échec de récupération des fournisseurs pour l’export CSV.');
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, fetchAllMatchingForExport, showToast]);
+
+  const handleExportPDF = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      showToast('success', 'Génération du rapport PDF en cours...');
+      const list = await fetchAllMatchingForExport();
+      if (list.length === 0) {
+        showToast('error', 'Aucun fournisseur à exporter.');
+        return;
+      }
+      await exportCataloguePDF({
+        fournisseurs: list,
+        orderStats,
+        statusFilter: queryState.statusFilter,
+        cityFilter: queryState.cityFilter,
+        searchTerm,
+      });
+      showToast('success', `Rapport PDF téléchargé (${list.length} fournisseur(s)) !`);
+    } catch (err) {
+      console.error('Erreur lors de l’export PDF du catalogue:', err);
+      showToast('error', 'Échec de génération du rapport PDF.');
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    exporting,
+    fetchAllMatchingForExport,
+    orderStats,
+    queryState.statusFilter,
+    queryState.cityFilter,
+    searchTerm,
+    showToast,
+  ]);
+
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200 ${isDarkMode ? 'dark' : ''}`}>
       {/* Top Navbar */}
       <Navbar
         isBackendHealthy={isBackendHealthy}
         demoMode={demoMode}
-        onToggleDemoMode={() => {
-          setDemoMode((prev) => !prev);
-          showToast('success', !demoMode ? 'Mode Démo activé.' : 'Mode API Réel activé.');
-        }}
+        onToggleDemoMode={handleToggleDemoMode}
         onRefreshHealth={checkBackendHealth}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
         onOpenCreateModal={handleOpenCreate}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
       {/* Main Container: Wide, Spacious & Responsive Enterprise Layout */}
@@ -470,54 +819,118 @@ export default function App() {
           </div>
         </div>
 
-        {/* Stats Cards (Interactive Click-to-filter) */}
+        {/* Stats Cards (Interactive Click-to-filter, computed globally) */}
         <StatsBar
-          fournisseurs={demoMode ? mockStore : (allFournisseurs.length > 0 ? allFournisseurs : fournisseurs)}
-          currentStatusFilter={statusFilter}
-          onSelectStatusFilter={setStatusFilter}
+          stats={globalStats}
+          avgRating={demoMode ? demoAvgRating : null}
+          currentStatusFilter={queryState.statusFilter}
+          onSelectStatusFilter={handleStatusFilterChange}
         />
 
         {/* Search, Filter & View Controls */}
         <FilterBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          cityFilter={cityFilter}
-          onCityFilterChange={setCityFilter}
-          availableCities={availableCities}
-          totalCount={totalCount}
-          activeCount={activeCount}
-          inactiveCount={inactiveCount}
+          statusFilter={queryState.statusFilter}
+          onStatusFilterChange={handleStatusFilterChange}
+          sortBy={queryState.sortBy}
+          onSortChange={handleSortChange}
+          cityFilter={queryState.cityFilter}
+          onCityFilterChange={handleCityFilterChange}
+          availableCities={globalStats.villes}
+          totalCount={globalStats.total}
+          activeCount={globalStats.actifs}
+          inactiveCount={globalStats.inactifs}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onOpenCreateModal={handleOpenCreate}
-          onRefresh={loadFournisseurs}
-          loading={loading}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
+          onExportCSV={handleExportCSV}
+          onExportPDF={handleExportPDF}
+          onRefresh={() => triggerReload(true)}
+          onClearAllFilters={handleClearAllFilters}
+          loading={loading || (viewMode === 'map' && mapLoading)}
+          exporting={exporting}
+          exportTotalCount={totalElements}
           fournisseursToExport={fournisseurs}
         />
 
-        {/* Data View (Table or Grid Cards) */}
+        {/* Data View (Table, Grid Cards, or Interactive Map) */}
         {viewMode === 'table' ? (
-          <FournisseurTable
-            fournisseurs={fournisseurs}
-            loading={loading}
-            orderStats={orderStats}
-            onEdit={handleOpenEdit}
-            onToggleStatus={handleToggleStatus}
-            onViewCommandes={handleViewCommandes}
-          />
+          <>
+            <FournisseurTable
+              fournisseurs={fournisseurs}
+              loading={loading}
+              error={pageError}
+              onRetry={() => triggerReload(true)}
+              batchKey={animationState.batchKey}
+              isAnimatingEntrance={animationState.active}
+              orderStats={orderStats}
+              onEdit={handleOpenEdit}
+              onToggleStatus={handleToggleStatus}
+              onViewCommandes={handleViewCommandes}
+            />
+            {!(pageError && fournisseurs.length === 0) && (
+              <PaginationBar
+                page={queryState.page}
+                size={queryState.size}
+                totalElements={totalElements}
+                totalPages={totalPages}
+                currentCount={fournisseurs.length}
+                loading={loading}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
+          </>
+        ) : viewMode === 'grid' ? (
+          <>
+            <FournisseurCards
+              fournisseurs={fournisseurs}
+              loading={loading}
+              error={pageError}
+              onRetry={() => triggerReload(true)}
+              batchKey={animationState.batchKey}
+              isAnimatingEntrance={animationState.active}
+              orderStats={orderStats}
+              onEdit={handleOpenEdit}
+              onToggleStatus={handleToggleStatus}
+              onViewCommandes={handleViewCommandes}
+            />
+            {!(pageError && fournisseurs.length === 0) && (
+              <PaginationBar
+                page={queryState.page}
+                size={queryState.size}
+                totalElements={totalElements}
+                totalPages={totalPages}
+                currentCount={fournisseurs.length}
+                loading={loading}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
+          </>
         ) : (
-          <FournisseurCards
-            fournisseurs={fournisseurs}
-            loading={loading}
-            orderStats={orderStats}
-            onEdit={handleOpenEdit}
-            onToggleStatus={handleToggleStatus}
-            onViewCommandes={handleViewCommandes}
-          />
+          <Suspense
+            fallback={
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 h-[580px] flex items-center justify-center shadow-sm">
+                <div className="flex items-center space-x-2.5 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Chargement de la carte interactive OpenStreetMap...</span>
+                </div>
+              </div>
+            }
+          >
+            <FournisseurMap
+              fournisseurs={mapFournisseurs}
+              loading={mapLoading}
+              isDarkMode={isDarkMode}
+              orderStats={orderStats}
+              onEdit={handleOpenEdit}
+              onViewCommandes={handleViewCommandes}
+              onNotify={showToast}
+            />
+          </Suspense>
         )}
       </main>
 
@@ -560,6 +973,44 @@ export default function App() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         demoMode={demoMode}
+      />
+
+      {/* Command Palette (Ctrl+K / Cmd+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        fournisseurs={demoMode ? mockStore : fournisseurs}
+        orderStats={orderStats}
+        onSelectFournisseur={handleViewCommandes}
+        onEditFournisseur={handleOpenEdit}
+        onOpenCreateModal={handleOpenCreate}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleDarkMode}
+        demoMode={demoMode}
+        onToggleDemoMode={handleToggleDemoMode}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        statusFilter={queryState.statusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
+        availableCities={globalStats.villes}
+        cityFilter={queryState.cityFilter}
+        onCityFilterChange={handleCityFilterChange}
+        onRefresh={() => triggerReload(true)}
+        onExportCSV={handleExportCSV}
+        onOpenImportModal={() => setIsImportModalOpen(true)}
+        onExportPDF={handleExportPDF}
+      />
+
+      {/* Import Modal (CSV / Excel) */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        existingFournisseurs={demoMode ? mockStore : importExistingPool ?? fournisseurs}
+        onSaveSupplier={handleSaveFournisseur}
+        onImportSuccess={(count) => {
+          triggerReload(true);
+          showToast('success', `${count} fournisseur(s) importé(s) avec succès !`);
+        }}
       />
 
       {/* Floating Animated Toast */}
