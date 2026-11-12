@@ -35,6 +35,7 @@ import { fournisseurApi, MOCK_COMMANDES } from '../api/fournisseurApi';
 import { computeOrderStats, formatMAD } from '../utils/orderStats';
 import { exportSupplierDossierPDF } from '../utils/pdfExport';
 import { computeSupplierRating, saveSupplierRating } from '../utils/scoring';
+import { parseAddressAndCity } from '../utils/addressParser';
 
 interface CommandesDrawerProps {
   fournisseur: Fournisseur | null;
@@ -224,9 +225,16 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
       .map((w) => w[0].toUpperCase())
       .join('') || 'FO';
 
-  // Deterministic Legal IDs based on ID
+  // Extract supplier city for realistic RC jurisdiction
+  const parsedAddress = parseAddressAndCity(fournisseur.adresse);
+  const supplierCity =
+    parsedAddress.ville && parsedAddress.ville !== 'Autre'
+      ? parsedAddress.ville
+      : parsedAddress.customVille || 'Casablanca';
+
+  // Deterministic Legal IDs based on ID & City
   const dummyIce = `0024987120000${String(fournisseur.id).padStart(2, '0')}`;
-  const dummyRc = `Casablanca N° ${45800 + fournisseur.id}`;
+  const dummyRc = `${supplierCity} N° ${45800 + fournisseur.id}`;
   const dummyIf = `33498${fournisseur.id}2`;
   const dummyTp = `28471${fournisseur.id}0`;
   const dummyRib = `007 780 0001${String(fournisseur.id).padStart(4, '0')}890123 45`;
