@@ -1,16 +1,17 @@
-/**
- * Utilitaires pour le module Commandes
- *
- * Exemples de fonctions à placer ici :
- * - formatCurrency(amount: number): string
- * - calculateOrderTotal(lines: Array<{ quantite: number; prix: number }>): number
- * - validateOrderPayload(order: unknown): boolean
- */
-
-export const formatOrderCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('fr-MA', {
+export function formatMontant(montant: number): string {
+  return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'MAD',
-  }).format(amount);
-};
+  }).format(montant);
+}
 
+export function formatDate(dateString: string): string {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
