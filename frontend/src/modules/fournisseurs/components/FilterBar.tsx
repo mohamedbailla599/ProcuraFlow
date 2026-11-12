@@ -706,7 +706,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         />
 
         {/* Right Cluster: Unified View Selector + Import + Export Dropdown + Refresh + CTA */}
-        <div className="flex items-center justify-between gap-2 shrink-0 w-full xl:w-auto xl:justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2 shrink-0 w-full xl:w-auto xl:justify-end pt-2.5 xl:pt-0 border-t border-slate-100 dark:border-slate-800/60 xl:border-t-0">
           {/* 5. Unified View Selector (List / Grid / Map) */}
           <div
             role="tablist"

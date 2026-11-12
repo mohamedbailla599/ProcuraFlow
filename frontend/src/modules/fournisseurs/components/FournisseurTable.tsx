@@ -151,15 +151,15 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
         </div>
       )}
       <div ref={scrollContainerRef} className="overflow-x-auto w-full">
-        <table className="w-full text-left border-collapse table-fixed">
-          {/* Explicit balanced column proportions for clean responsive presentation without horizontal scroll */}
+        <table className="w-full min-w-[960px] text-left border-collapse table-fixed">
+          {/* Explicit balanced column proportions with minimum constraints to guarantee action buttons are never clipped */}
           <colgroup>
-            <col className="w-[26%]" />
-            <col className="w-[23%]" />
-            <col className="w-[22%]" />
-            <col className="w-[11%]" />
-            <col className="w-[9%]" />
-            <col className="w-[9%]" />
+            <col className="w-[28%] min-w-[210px]" />
+            <col className="w-[23%] min-w-[190px]" />
+            <col className="w-[21%] min-w-[170px]" />
+            <col className="w-[12%] min-w-[110px]" />
+            <col className="w-[8%] min-w-[85px]" />
+            <col className="w-[145px] min-w-[145px]" />
           </colgroup>
 
           <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
@@ -179,7 +179,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
               <th scope="col" className="px-3 py-3.5 text-center">
                 Statut
               </th>
-              <th scope="col" className="pr-5 pl-2 py-3.5 text-right">
+              <th scope="col" className="pr-5 pl-2 py-3.5 text-right w-[145px] min-w-[145px] whitespace-nowrap">
                 Actions
               </th>
             </tr>
@@ -353,9 +353,9 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     )}
                   </td>
 
-                  {/* Colonne 5: Actions */}
-                  <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap">
-                    <div className="inline-flex items-center justify-end space-x-1.5">
+                  {/* Colonne 6: Actions */}
+                  <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap w-[145px] min-w-[145px]">
+                    <div className="inline-flex items-center justify-end space-x-1.5 shrink-0">
                       {/* Action Voir Commandes (Icon-only with glowing hover and order counter badge) */}
                       <button
                         type="button"

@@ -67,12 +67,8 @@ flowchart LR
 ## 3. Structure du projet
 
 ```text
-service-fournisseurs-mohamed/
-├── Dockerfile                                  # Build multi-stage (JDK 21 -> JRE 21 Alpine)
-├── pom.xml                                     # Dépendances & plugins Maven
-├── .env.example                                # Modèle de variables d'environnement
-├── README.md
-├── frontend/                                   # Interface web React + TypeScript + Vite
+ProcuraFlow/
+├── frontend/                                   # Interface web React + TypeScript + Vite (à la racine du dépôt)
 │   ├── package.json
 │   ├── vite.config.ts                          # Proxy /api et /actuator vers :8081
 │   ├── tailwind.config.js
@@ -96,39 +92,44 @@ service-fournisseurs-mohamed/
 │       │   └── Toast.tsx
 │       ├── types/fournisseur.ts
 │       └── utils/                              # Géocodage, import CSV/XLSX, PDF, scoring, pagination
-└── src/
-    ├── main/
-    │   ├── java/com/procuraflow/fournisseurs/
-    │   │   ├── FournisseursApplication.java
-    │   │   ├── client/CommandesClient.java
-    │   │   ├── config/                         # CorsConfig, DataSourceConfig, NeonJdbcUrlResolver, OpenApiConfig, RestClientConfig
-    │   │   ├── controller/FournisseurController.java
-    │   │   ├── dto/                            # FournisseurRequest/Response, PageResponse, FournisseurStatsResponse, ApiErrorResponse...
-    │   │   ├── entity/Fournisseur.java
-    │   │   ├── exception/                      # GlobalExceptionHandler & exceptions métier
-    │   │   ├── repository/FournisseurRepository.java
-    │   │   └── service/FournisseurService.java
-    │   └── resources/
-    │       ├── application.yml
-    │       └── db/migration/V1__init_schema_fournisseurs.sql
-    └── test/
-        ├── java/com/procuraflow/fournisseurs/
-        │   ├── client/CommandesClientTest.java
-        │   ├── config/NeonJdbcUrlResolverTest.java
-        │   ├── controller/FournisseurControllerTest.java
-        │   ├── integration/FournisseurIntegrationTest.java
-        │   ├── service/FournisseurServiceAtelierTest.java
-        │   └── service/FournisseurServiceTest.java
-        └── resources/
-            ├── application-test.yml
-            └── schema-test.sql
+└── service-fournisseurs-mohamed/
+    ├── Dockerfile                              # Build multi-stage (JDK 21 -> JRE 21 Alpine)
+    ├── pom.xml                                 # Dépendances & plugins Maven
+    ├── .env.example                            # Modèle de variables d'environnement
+    ├── README.md
+    └── src/
+        ├── main/
+        │   ├── java/com/procuraflow/fournisseurs/
+        │   │   ├── FournisseursApplication.java
+        │   │   ├── client/CommandesClient.java
+        │   │   ├── config/                     # CorsConfig, DataSourceConfig, NeonJdbcUrlResolver, OpenApiConfig, RestClientConfig
+        │   │   ├── controller/FournisseurController.java
+        │   │   ├── dto/                        # FournisseurRequest/Response, PageResponse, FournisseurStatsResponse, ApiErrorResponse...
+        │   │   ├── entity/Fournisseur.java
+        │   │   ├── exception/                  # GlobalExceptionHandler & exceptions métier
+        │   │   ├── repository/FournisseurRepository.java
+        │   │   └── service/FournisseurService.java
+        │   └── resources/
+        │       ├── application.yml
+        │       └── db/migration/V1__init_schema_fournisseurs.sql
+        └── test/
+            ├── java/com/procuraflow/fournisseurs/
+            │   ├── client/CommandesClientTest.java
+            │   ├── config/NeonJdbcUrlResolverTest.java
+            │   ├── controller/FournisseurControllerTest.java
+            │   ├── integration/FournisseurIntegrationTest.java
+            │   ├── service/FournisseurServiceAtelierTest.java
+            │   └── service/FournisseurServiceTest.java
+            └── resources/
+                ├── application-test.yml
+                └── schema-test.sql
 ```
 
 ---
 
 ## 4. Fonctionnalités Frontend
 
-L'application React (`frontend/`) consomme l'API Spring Boot via le proxy Vite (`/api` → `http://localhost:8081`) et propose également un **mode démo** de secours lorsque le backend est hors ligne :
+L'application React (`frontend/` à la racine du dépôt) consomme l'API Spring Boot via le proxy Vite (`/api` → `http://localhost:8081`) et propose également un **mode démo** de secours lorsque le backend est hors ligne :
 
 - **Trois modes de visualisation** : vue Tableau (`FournisseurTable`), vue Cartes (`FournisseurCards`) et **carte géographique interactive** (`FournisseurMap` avec Leaflet & MarkerCluster, géocodage et choix de fond de carte).
 - **Pagination, recherche et tri côté serveur** : recherche multi-champs (`nom`, `email`, `téléphone`, `adresse`), filtrage par statut (`Tous` / `Actifs` / `Inactifs`), filtrage par ville (tolérant aux accents) et taille de page configurable (`1` à `50`).
@@ -274,7 +275,8 @@ Vérification :
 ### 2) Lancer le Frontend React + Vite (`:5173`)
 
 ```bash
-cd service-fournisseurs-mohamed/frontend
+# Depuis la racine du dépôt
+cd frontend
 npm install
 npm run dev
 ```
