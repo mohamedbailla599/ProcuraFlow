@@ -1,18 +1,23 @@
-/**
- * Types pour le module Commandes (Yassine - Spring Boot :8082)
- *
- * Définissez ici les interfaces TypeScript pour :
- * - Commande (id, numeroCommande, dateCommande, statut, montantTotal, fournisseurId, etc.)
- * - LigneCommande (id, reference, designation, quantite, prixUnitaireHT, etc.)
- * - Filtres et statistiques de commandes
- */
-
-export interface Commande {
-  id?: number | string;
-  numero?: string;
-  fournisseurId?: number;
-  dateCommande?: string;
-  statut?: 'BROUILLON' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE';
-  montantTotal?: number;
+export interface LigneCommande {
+  id?: number;
+  designation: string;
+  quantite: number;
+  prixUnitaire: number;
 }
 
+export type StatutCommande = 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE' | string;
+
+export interface Commande {
+  id: number;
+  fournisseurId: number;
+  dateCommande: string;
+  statut: StatutCommande;
+  montantTotal: number;
+  lignesCommande: LigneCommande[];
+}
+
+export interface CreateCommandePayload {
+  fournisseurId: number;
+  statut?: StatutCommande;
+  lignesCommande: Omit<LigneCommande, 'id'>[];
+}
