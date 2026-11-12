@@ -23,6 +23,7 @@ import { ConfirmModal } from '../../../components/ConfirmModal';
 import { CommandesDrawer } from '../components/CommandesDrawer';
 import { ImportModal } from '../components/ImportModal';
 import { Toast, ToastMessage } from '../../../components/Toast';
+import { MOROCCO_CITY_NAMES } from '../../../data/moroccoCities';
 import { FilterParams, Fournisseur, FournisseurRequest, FournisseurStats } from '../types/fournisseur';
 import { computeSupplierRating, saveSupplierRating } from '../utils/scoring';
 import { computeOrderStats, SupplierOrderStats, formatMAD } from '../utils/orderStats';
@@ -148,11 +149,20 @@ export const FournisseursPage = () => {
     fournisseur: null,
   });
 
-  // Notifications
-  const [toast, setToast] = useState<ToastMessage | null>(null);
+  // Notifications (stacked modern toast queue)
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = useCallback((type: 'success' | 'error', text: string) => {
-    setToast({ id: String(Date.now()), type, text });
+  const showToast = useCallback((type: 'success' | 'error' | 'warning' | 'info', text: string) => {
+    const id = String(Date.now() + Math.random());
+    setToasts((prev) => [...prev.slice(-3), { id, type, text }]);
+  }, []);
+
+  const handleCloseToast = useCallback((id?: string) => {
+    if (!id) {
+      setToasts([]);
+    } else {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }
   }, []);
 
   // Debounce free-text search and reset to page 0 atomically when query changes
@@ -226,6 +236,23 @@ export const FournisseursPage = () => {
         : { ...prev, cityFilter: nextCity, page: 0 }
     );
   }, []);
+
+  // Comprehensive national cities list (Catalogue du Maroc + villes personnalisées existantes)
+  const allAvailableCities = useMemo(() => {
+    const set = new Set<string>(MOROCCO_CITY_NAMES);
+    (globalStats.villes || []).forEach((v) => {
+      if (
+        v &&
+        v.length <= 25 &&
+        !v.toLowerCase().includes('rue') &&
+        !v.toLowerCase().includes('bloc') &&
+        !v.toLowerCase().includes('hay')
+      ) {
+        set.add(v);
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [globalStats.villes]);
 
   const handlePageSizeChange = useCallback((nextSize: PageSizeOption) => {
     setQueryState((prev) =>
@@ -931,7 +958,7 @@ export const FournisseursPage = () => {
         onSortChange={handleSortChange}
         cityFilter={queryState.cityFilter}
         onCityFilterChange={handleCityFilterChange}
-        availableCities={globalStats.villes}
+        availableCities={allAvailableCities}
         totalCount={globalStats.total}
         activeCount={globalStats.actifs}
         inactiveCount={globalStats.inactifs}
@@ -963,6 +990,8 @@ export const FournisseursPage = () => {
             onEdit={handleOpenEdit}
             onToggleStatus={handleToggleStatus}
             onViewCommandes={handleViewCommandes}
+            onCityFilter={handleCityFilterChange}
+            onNotify={showToast}
           />
           {!(pageError && fournisseurs.length === 0) && (
             <PaginationBar
@@ -1033,6 +1062,7 @@ export const FournisseursPage = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSaveFournisseur}
         fournisseurToEdit={fournisseurToEdit}
+        customCities={allAvailableCities}
       />
 
       {/* Confirmation Modal (Activate / Deactivate) */}
@@ -1080,8 +1110,8 @@ export const FournisseursPage = () => {
         }}
       />
 
-      {/* Floating Animated Toast */}
-      <Toast toast={toast} onClose={() => setToast(null)} />
+      {/* Stacked Animated Modern Toasts */}
+      <Toast toasts={toasts} onClose={handleCloseToast} />
     </div>
   );
 };

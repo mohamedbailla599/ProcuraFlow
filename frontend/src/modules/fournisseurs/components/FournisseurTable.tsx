@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Building2,
   Mail,
@@ -13,6 +13,11 @@ import {
   Star,
   AlertCircle,
   RefreshCw,
+  Download,
+  X,
+  CheckSquare,
+  Square,
+  MinusSquare,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { computeSupplierRating } from '../utils/scoring';
@@ -30,6 +35,8 @@ interface FournisseurTableProps {
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
   onViewCommandes: (fournisseur: Fournisseur) => void;
+  onCityFilter?: (city: string) => void;
+  onNotify?: (type: 'success' | 'error' | 'warning', text: string) => void;
 }
 
 export const FournisseurTable: React.FC<FournisseurTableProps> = ({
@@ -43,9 +50,17 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   onEdit,
   onToggleStatus,
   onViewCommandes,
+  onCityFilter,
+  onNotify,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Clear selections when page suppliers list changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [fournisseurs]);
 
   // Guarantee that the table is always scrolled to the start on load/update
   useEffect(() => {
@@ -54,10 +69,24 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
     }
   }, [fournisseurs]);
 
+  // Escape key cancels bulk selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedIds.size > 0) {
+        setSelectedIds(new Set());
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIds.size]);
+
   const copyToClipboard = (text: string, key: string, e: React.MouseEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
+    if (onNotify) {
+      onNotify('success', `Copié dans le presse-papiers : ${text}`);
+    }
     setTimeout(() => setCopiedKey(null), 1800);
   };
 
@@ -70,10 +99,72 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
     return (parts[0][0] + parts[1][0]).toUpperCase();
   };
 
+  // Selection handlers
+  const allSelected = useMemo(() => {
+    return fournisseurs.length > 0 && fournisseurs.every((f) => selectedIds.has(f.id));
+  }, [fournisseurs, selectedIds]);
+
+  const someSelected = useMemo(() => {
+    return selectedIds.size > 0 && !allSelected;
+  }, [selectedIds, allSelected]);
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(fournisseurs.map((f) => f.id)));
+    }
+  };
+
+  const toggleSelectRow = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Bulk Export CSV for selected items
+  const handleBulkExportSelected = () => {
+    const selectedList = fournisseurs.filter((f) => selectedIds.has(f.id));
+    if (selectedList.length === 0) return;
+
+    const headers = ['ID', 'Nom', 'Email', 'Téléphone', 'Adresse', 'Statut', 'Date Création'];
+    const rows = selectedList.map((f) => [
+      f.id,
+      `"${f.nom.replace(/"/g, '""')}"`,
+      `"${f.email.replace(/"/g, '""')}"`,
+      `"${(f.telephone || '').replace(/"/g, '""')}"`,
+      `"${(f.adresse || '').replace(/"/g, '""')}"`,
+      f.actif ? 'Actif' : 'Inactif',
+      f.createdAt || '',
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `selection_fournisseurs_${selectedList.length}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (onNotify) {
+      onNotify('success', `${selectedList.length} fournisseur(s) sélectionné(s) exporté(s) en CSV !`);
+    }
+  };
+
   // Loading Skeleton State
   if (loading && fournisseurs.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden animate-fade-in-up">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden animate-fade-in-up">
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/50">
           <div className="h-4 w-48 rounded-md skeleton-shimmer" />
         </div>
@@ -101,7 +192,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   // Error State
   if (error && fournisseurs.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-12 text-center shadow-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 p-12 text-center shadow-xs">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3.5 border border-rose-100 dark:border-rose-900/60">
           <AlertCircle className="w-6 h-6" />
         </div>
@@ -128,7 +219,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   // Empty State
   if (fournisseurs.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-16 text-center shadow-xs animate-fade-in-up">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-16 text-center shadow-xs animate-fade-in-up">
         <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mx-auto mb-4">
           <Building2 className="w-7 h-7" />
         </div>
@@ -141,37 +232,62 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   }
 
   return (
-    <div className="relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+    <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
       {loading && (
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-0.5 bg-teal-500/20 overflow-hidden z-10"
+          className="absolute inset-x-0 top-0 h-0.5 bg-teal-500/20 overflow-hidden z-20"
         >
           <div className="h-full w-1/3 bg-teal-600 dark:bg-teal-400 animate-pulse rounded-full" />
         </div>
       )}
-      <div ref={scrollContainerRef} className="overflow-x-auto w-full">
-        <table className="w-full min-w-[960px] text-left border-collapse table-fixed">
-          {/* Explicit balanced column proportions with minimum constraints to guarantee action buttons are never clipped */}
+
+      {/* Table Container with Controlled Scroll and Sticky Header */}
+      <div
+        ref={scrollContainerRef}
+        className="overflow-x-auto w-full max-h-[720px] overflow-y-auto scroll-smooth"
+      >
+        <table className="w-full min-w-[1000px] text-left border-collapse table-fixed">
+          {/* Column definitions with Checkbox Column */}
           <colgroup>
+            <col className="w-[48px] min-w-[48px]" />
             <col className="w-[28%] min-w-[210px]" />
-            <col className="w-[23%] min-w-[190px]" />
-            <col className="w-[21%] min-w-[170px]" />
+            <col className="w-[22%] min-w-[180px]" />
+            <col className="w-[22%] min-w-[170px]" />
             <col className="w-[12%] min-w-[110px]" />
             <col className="w-[8%] min-w-[85px]" />
             <col className="w-[145px] min-w-[145px]" />
           </colgroup>
 
-          <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
+          {/* Sticky Header with Backdrop Blur */}
+          <thead className="sticky top-0 z-10 bg-slate-50/95 dark:bg-slate-850/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none shadow-2xs">
             <tr>
-              <th scope="col" className="px-5 py-3.5">
+              {/* Checkbox Header */}
+              <th scope="col" className="pl-4 pr-1 py-3.5 text-center">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  aria-label={allSelected ? 'Tout désélectionner' : 'Tout sélectionner sur la page'}
+                  title={allSelected ? 'Tout désélectionner' : 'Tout sélectionner sur la page'}
+                  className="p-1 rounded-md text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
+                >
+                  {allSelected ? (
+                    <CheckSquare className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  ) : someSelected ? (
+                    <MinusSquare className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  ) : (
+                    <Square className="w-4 h-4" />
+                  )}
+                </button>
+              </th>
+              <th scope="col" className="px-4 py-3.5">
                 Fournisseur
               </th>
               <th scope="col" className="px-4 py-3.5">
                 Coordonnées
               </th>
               <th scope="col" className="px-4 py-3.5">
-                Adresse
+                Adresse & Ville
               </th>
               <th scope="col" className="px-3 py-3.5">
                 Évaluation
@@ -194,26 +310,48 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
               const initials = getInitials(fournisseur.nom);
               const rating = computeSupplierRating(fournisseur);
               const stats = orderStats?.[fournisseur.id];
+              const isSelected = selectedIds.has(fournisseur.id);
 
               return (
                 <tr
                   key={`${batchKey}-${fournisseur.id}`}
-                  className={`hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors duration-150 group ${
-                    isAnimatingEntrance ? 'supplier-entrance' : ''
-                  }`}
+                  onClick={() => onViewCommandes(fournisseur)}
+                  className={`transition-colors duration-150 group cursor-pointer ${
+                    isSelected
+                      ? 'bg-teal-50/70 dark:bg-teal-950/40 border-l-4 border-l-teal-600'
+                      : 'hover:bg-teal-50/30 dark:hover:bg-slate-800/50'
+                  } ${isAnimatingEntrance ? 'supplier-entrance' : ''}`}
                   style={
                     isAnimatingEntrance
                       ? { animationDelay: `${getStaggerDelayMs(index, fournisseurs.length)}ms` }
                       : undefined
                   }
                 >
+                  {/* Colonne 0: Checkbox */}
+                  <td
+                    className="pl-4 pr-1 py-4 align-middle text-center"
+                    onClick={(e) => toggleSelectRow(fournisseur.id, e)}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Sélectionner ${fournisseur.nom}`}
+                      className="p-1 rounded-md text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      ) : (
+                        <Square className="w-4 h-4 group-hover:text-slate-600 dark:group-hover:text-slate-300" />
+                      )}
+                    </button>
+                  </td>
+
                   {/* Colonne 1: Fournisseur (Avatar + Nom + ID) */}
-                  <td className="px-6 py-4 align-middle">
+                  <td className="px-4 py-4 align-middle">
                     <div className="flex items-center space-x-3.5 min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 select-none transition-all duration-200 group-hover:scale-105 ${
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 select-none transition-all duration-200 group-hover:scale-105 shadow-2xs ${
                           fournisseur.actif
-                            ? 'bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/60 dark:to-emerald-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80 shadow-xs'
+                            ? 'bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/60 dark:to-emerald-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
@@ -221,7 +359,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div
-                          className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-900 dark:group-hover:text-teal-300 transition-colors duration-150 truncate text-sm"
+                          className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-700 dark:group-hover:text-teal-300 transition-colors duration-150 truncate text-sm"
                           title={fournisseur.nom}
                         >
                           {fournisseur.nom}
@@ -233,11 +371,11 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Colonne 2: Coordonnées (Email + Téléphone avec copie) */}
-                  <td className="px-5 py-4 align-middle">
+                  {/* Colonne 2: Coordonnées (Email + Téléphone avec copie rapide) */}
+                  <td className="px-4 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col space-y-1.5 min-w-0">
-                      {/* Email */}
-                      <div className="flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 min-w-0 text-xs">
+                      {/* Email avec bouton copie 1-clic */}
+                      <div className="flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 min-w-0 text-xs group/mail">
                         <Mail className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                         <span className="truncate" title={fournisseur.email}>
                           {fournisseur.email}
@@ -245,21 +383,21 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                         <button
                           type="button"
                           onClick={(e) => copyToClipboard(fournisseur.email, `mail-${fournisseur.id}`, e)}
-                          title="Copier l'adresse e-mail"
-                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
-                          aria-label="Copier l'adresse e-mail"
+                          title="Copier l'adresse email"
+                          aria-label="Copier l'adresse email"
+                          className="text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90"
                         >
                           {copiedKey === `mail-${fournisseur.id}` ? (
                             <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           ) : (
-                            <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                            <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           )}
                         </button>
                       </div>
 
                       {/* Téléphone */}
                       {fournisseur.telephone ? (
-                        <div className="flex items-center space-x-1.5 text-slate-500 dark:text-slate-400 min-w-0 text-xs">
+                        <div className="flex items-center space-x-1.5 text-slate-500 dark:text-slate-400 min-w-0 text-xs group/phone">
                           <Phone className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                           <span className="truncate" title={fournisseur.telephone}>
                             {fournisseur.telephone}
@@ -267,14 +405,14 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                           <button
                             type="button"
                             onClick={(e) => copyToClipboard(fournisseur.telephone!, `phone-${fournisseur.id}`, e)}
-                            title="Copier le numéro de téléphone"
-                            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
-                            aria-label="Copier le numéro de téléphone"
+                            title="Copier le téléphone"
+                            aria-label="Copier le téléphone"
+                            className="text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90"
                           >
                             {copiedKey === `phone-${fournisseur.id}` ? (
                               <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                              <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                              <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                             )}
                           </button>
                         </div>
@@ -284,34 +422,21 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Colonne 3: Adresse */}
-                  <td className="px-5 py-4 align-middle">
+                  {/* Colonne 3: Adresse & Ville */}
+                  <td className="px-4 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
                     {fournisseur.adresse ? (
-                      <div className="flex items-start space-x-1.5 text-slate-600 dark:text-slate-400 min-w-0 text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5" />
+                      <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-400 min-w-0 text-xs">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
                         <span className="truncate flex-1" title={fournisseur.adresse}>
                           {fournisseur.adresse}
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => copyToClipboard(fournisseur.adresse!, `addr-${fournisseur.id}`, e)}
-                          title="Copier l'adresse"
-                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
-                          aria-label="Copier l'adresse"
-                        >
-                          {copiedKey === `addr-${fournisseur.id}` ? (
-                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                          ) : (
-                            <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
-                          )}
-                        </button>
                       </div>
                     ) : (
                       <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Adresse non renseignée</span>
                     )}
                   </td>
 
-                  {/* Colonne 4: Évaluation & Scoring (Stars only) */}
+                  {/* Colonne 4: Évaluation & Scoring (Stars) */}
                   <td className="px-3 py-4 align-middle whitespace-nowrap">
                     <div
                       className="flex items-center space-x-1.5"
@@ -335,10 +460,10 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Colonne 4: Statut (Actif / Inactif) */}
-                  <td className="px-4 py-4 align-middle text-center whitespace-nowrap">
+                  {/* Colonne 5: Statut (Actif / Inactif) */}
+                  <td className="px-3 py-4 align-middle text-center whitespace-nowrap">
                     {fournisseur.actif ? (
-                      <span className="badge-active">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/70">
                         <span className="relative flex h-1.5 w-1.5">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
@@ -346,7 +471,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                         <span>Actif</span>
                       </span>
                     ) : (
-                      <span className="badge-inactive">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                         <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                         <span>Inactif</span>
                       </span>
@@ -354,7 +479,10 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                   </td>
 
                   {/* Colonne 6: Actions */}
-                  <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap w-[145px] min-w-[145px]">
+                  <td
+                    className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap w-[145px] min-w-[145px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="inline-flex items-center justify-end space-x-1.5 shrink-0">
                       {/* Action Voir Commandes (Icon-only with glowing hover and order counter badge) */}
                       <button
@@ -362,7 +490,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                         onClick={() => onViewCommandes(fournisseur)}
                         title={
                           stats && stats.totalOrders > 0
-                            ? `${fournisseur.nom} : ${stats.activeOrders} cde(s) active(s) · Total commandé : ${formatMAD(stats.totalOrderedAmount)} (Engagé : ${formatMAD(stats.totalCommittedAmount)})${stats.completedOrders > 0 ? ` · Cdes réceptionnées/facturées : ${formatMAD(stats.receivedOrInvoicedAmount)}` : ''}${stats.latestOrderDate ? ` · Dernière : ${new Date(stats.latestOrderDate).toLocaleDateString('fr-FR')}` : ''}`
+                            ? `${fournisseur.nom} : ${stats.activeOrders} commande(s) active(s) · Total : ${formatMAD(stats.totalOrderedAmount)}`
                             : `Consulter les bons de commande de ${fournisseur.nom}`
                         }
                         aria-label={`Voir les commandes de ${fournisseur.nom}`}
@@ -420,6 +548,43 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Floating Bulk Actions Bar (Appears when items are selected) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-4 animate-fade-in-up">
+          <div className="flex items-center space-x-2">
+            <span className="w-6 h-6 rounded-lg bg-teal-500 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-semibold text-slate-200">
+              sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700" />
+
+          {/* Action Exporter la sélection */}
+          <button
+            type="button"
+            onClick={handleBulkExportSelected}
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-colors active:scale-95 cursor-pointer shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Exporter CSV ({selectedIds.size})</span>
+          </button>
+
+          {/* Action Tout désélectionner */}
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            title="Désélectionner (Échap)"
+            className="inline-flex items-center space-x-1 p-1.5 text-xs font-medium text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            <span className="text-[11px] hidden sm:inline">Annuler</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

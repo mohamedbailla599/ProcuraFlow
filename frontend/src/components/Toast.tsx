@@ -1,85 +1,136 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 export interface ToastMessage {
   id: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'warning' | 'info';
   text: string;
 }
 
 interface ToastProps {
-  toast: ToastMessage | null;
-  onClose: () => void;
+  toast?: ToastMessage | null;
+  toasts?: ToastMessage[];
+  onClose: (id?: string) => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
+const ToastItem: React.FC<{
+  toast: ToastMessage;
+  onClose: (id: string) => void;
+}> = ({ toast, onClose }) => {
   const [progress, setProgress] = useState(100);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (!toast) return;
+    const duration = 4200;
+    const intervalMs = 25;
+    const step = (intervalMs / duration) * 100;
 
-    setProgress(100);
-    const startTime = Date.now();
-    const duration = 4000;
-
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setProgress(remaining);
-      if (remaining === 0) {
-        clearInterval(interval);
-        onClose();
+    const timer = setInterval(() => {
+      if (!isPaused) {
+        setProgress((prev) => {
+          if (prev <= step) {
+            clearInterval(timer);
+            onClose(toast.id);
+            return 0;
+          }
+          return prev - step;
+        });
       }
-    }, 50);
+    }, intervalMs);
 
-    return () => clearInterval(interval);
-  }, [toast, onClose]);
+    return () => clearInterval(timer);
+  }, [toast.id, isPaused, onClose]);
 
-  if (!toast) return null;
-
-  const isSuccess = toast.type === 'success';
+  const config = useMemo(() => {
+    switch (toast.type) {
+      case 'success':
+        return {
+          icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
+          iconBg: 'bg-emerald-500/20 text-emerald-400',
+          border: 'border-emerald-500/40 shadow-emerald-950/20',
+          progressBg: 'bg-gradient-to-r from-emerald-500 to-teal-400',
+        };
+      case 'warning':
+        return {
+          icon: <AlertTriangle className="w-4 h-4 text-amber-400" />,
+          iconBg: 'bg-amber-500/20 text-amber-400',
+          border: 'border-amber-500/40 shadow-amber-950/20',
+          progressBg: 'bg-gradient-to-r from-amber-500 to-yellow-400',
+        };
+      case 'info':
+        return {
+          icon: <Info className="w-4 h-4 text-sky-400" />,
+          iconBg: 'bg-sky-500/20 text-sky-400',
+          border: 'border-sky-500/40 shadow-sky-950/20',
+          progressBg: 'bg-gradient-to-r from-sky-500 to-teal-400',
+        };
+      case 'error':
+      default:
+        return {
+          icon: <AlertCircle className="w-4 h-4 text-rose-400" />,
+          iconBg: 'bg-rose-500/20 text-rose-400',
+          border: 'border-rose-500/40 shadow-rose-950/20',
+          progressBg: 'bg-gradient-to-r from-rose-500 to-red-400',
+        };
+    }
+  }, [toast.type]);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-fade-in-up">
-      <div
-        className={`relative overflow-hidden flex flex-col rounded-2xl shadow-2xl border text-sm max-w-md ${
-          isSuccess
-            ? 'bg-slate-900/95 text-white border-emerald-500/40 shadow-emerald-950/20'
-            : 'bg-slate-900/95 text-white border-rose-500/40 shadow-rose-950/20'
-        }`}
-      >
-        <div className="p-4 flex items-center space-x-3">
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-              isSuccess ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-            }`}
-          >
-            {isSuccess ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-scale-in" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-rose-400 animate-scale-in" />
-            )}
-          </div>
-          <p className="flex-1 font-semibold text-xs leading-relaxed text-slate-100">{toast.text}</p>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
-            aria-label="Fermer la notification"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <div
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      className={`pointer-events-auto relative overflow-hidden flex flex-col rounded-2xl shadow-2xl border text-sm max-w-md w-full bg-slate-900/95 dark:bg-slate-850/95 backdrop-blur-md text-white transition-all duration-200 animate-slide-in-right ${config.border}`}
+    >
+      <div className="p-3.5 flex items-start space-x-3">
+        <div
+          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${config.iconBg}`}
+        >
+          {config.icon}
         </div>
-
-        {/* Progress countdown bar */}
-        <div className="w-full bg-slate-800/80 h-1">
-          <div
-            className={`h-1 transition-all duration-75 ${
-              isSuccess ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-rose-500'
-            }`}
-            style={{ width: `${progress}%` }}
-          />
+        <div className="flex-1 min-w-0 pr-1">
+          <p className="font-semibold text-xs leading-relaxed text-slate-100 break-words">
+            {toast.text}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => onClose(toast.id)}
+          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors active:scale-95 cursor-pointer shrink-0"
+          aria-label="Fermer la notification"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Auto-dismiss timer progress bar */}
+      <div className="w-full bg-slate-800/80 h-1">
+        <div
+          className={`h-1 transition-all duration-75 ${config.progressBg}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export const Toast: React.FC<ToastProps> = ({ toast, toasts, onClose }) => {
+  const activeToasts = useMemo(() => {
+    if (toasts && toasts.length > 0) return toasts;
+    if (toast) return [toast];
+    return [];
+  }, [toast, toasts]);
+
+  if (activeToasts.length === 0) return null;
+
+  return (
+    <div
+      aria-live="polite"
+      aria-atomic="true"
+      className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-md w-full pointer-events-none"
+    >
+      {activeToasts.map((t) => (
+        <ToastItem key={t.id} toast={t} onClose={(id) => onClose(id)} />
+      ))}
     </div>
   );
 };

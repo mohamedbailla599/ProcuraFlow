@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Activity,
   Layers,
+  PanelLeft,
 } from 'lucide-react';
 import { useApp, PaletteCommand } from '../../context/AppContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -29,6 +30,8 @@ export const GlobalCommandPalette: React.FC = () => {
     demoMode,
     toggleDemoMode,
     checkBackendHealth,
+    isSidebarCollapsed,
+    toggleSidebarCollapsed,
   } = useApp();
 
   const [query, setQuery] = useState('');
@@ -134,6 +137,15 @@ export const GlobalCommandPalette: React.FC = () => {
         icon: isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-teal-500" />,
         shortcut: 'Thème',
         onSelect: toggleDarkMode,
+      },
+      {
+        id: 'action-sidebar-toggle',
+        category: 'Actions Globales',
+        title: isSidebarCollapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale',
+        subtitle: 'Alterner entre le mode étendu (288px) et le mode compact (80px)',
+        icon: <PanelLeft className="w-4 h-4 text-teal-600 dark:text-teal-400" />,
+        shortcut: 'Ctrl B',
+        onSelect: toggleSidebarCollapsed,
       },
       {
         id: 'action-demo',

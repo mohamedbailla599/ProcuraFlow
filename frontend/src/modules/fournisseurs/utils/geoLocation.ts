@@ -1,4 +1,5 @@
 import { Fournisseur } from '../types/fournisseur';
+import { MOROCCO_CITIES } from '../../../data/moroccoCities';
 
 export type GeoPrecision = 'exact' | 'city_approximate' | 'unlocalized';
 
@@ -37,37 +38,14 @@ interface StoredExactCoord {
  * lorsqu'aucune coordonnée GPS exacte n'est fournie.
  */
 export const CITY_COORDINATES: CityEntry[] = [
-  // --- Maroc ---
-  { name: 'Casablanca', country: 'Maroc', lat: 33.5731, lng: -7.5898, aliases: ['casa', 'dar el beida'] },
-  { name: 'Rabat', country: 'Maroc', lat: 34.0209, lng: -6.8416 },
-  { name: 'Agadir', country: 'Maroc', lat: 30.4278, lng: -9.5981, aliases: ['tassila', 'ait melloul', 'inzegane'] },
-  { name: 'Marrakech', country: 'Maroc', lat: 31.6295, lng: -7.9811, aliases: ['marrakesh', 'sidi ghanem'] },
-  { name: 'Tanger', country: 'Maroc', lat: 35.7595, lng: -5.8340, aliases: ['tangier'] },
-  { name: 'Fès', country: 'Maroc', lat: 34.0181, lng: -5.0078, aliases: ['fes', 'fez'] },
-  { name: 'Meknès', country: 'Maroc', lat: 33.8935, lng: -5.5547, aliases: ['meknes'] },
-  { name: 'Oujda', country: 'Maroc', lat: 34.6814, lng: -1.9086 },
-  { name: 'Kénitra', country: 'Maroc', lat: 34.2610, lng: -6.5802, aliases: ['kenitra'] },
-  { name: 'Tétouan', country: 'Maroc', lat: 35.5889, lng: -5.3626, aliases: ['tetouan'] },
-  { name: 'Salé', country: 'Maroc', lat: 34.0531, lng: -6.7985, aliases: ['sale'] },
-  { name: 'Mohammedia', country: 'Maroc', lat: 33.6861, lng: -7.3830 },
-  { name: 'El Jadida', country: 'Maroc', lat: 33.2316, lng: -8.5007 },
-  { name: 'Safi', country: 'Maroc', lat: 32.2994, lng: -9.2372 },
-  { name: 'Béni Mellal', country: 'Maroc', lat: 32.3373, lng: -6.3498, aliases: ['beni mellal'] },
-  { name: 'Nador', country: 'Maroc', lat: 35.1681, lng: -2.9335 },
-  { name: 'Settat', country: 'Maroc', lat: 33.0010, lng: -7.6166 },
-  { name: 'Berrechid', country: 'Maroc', lat: 33.2655, lng: -7.5875 },
-  { name: 'Khouribga', country: 'Maroc', lat: 32.8811, lng: -6.9063 },
-  { name: 'Larache', country: 'Maroc', lat: 35.1932, lng: -6.1557 },
-  { name: 'Taza', country: 'Maroc', lat: 34.2100, lng: -4.0100 },
-  { name: 'Khémisset', country: 'Maroc', lat: 33.8240, lng: -6.0663, aliases: ['khemisset'] },
-  { name: 'Essaouira', country: 'Maroc', lat: 31.5085, lng: -9.7595 },
-  { name: 'Ouarzazate', country: 'Maroc', lat: 30.9335, lng: -6.9370 },
-  { name: 'Errachidia', country: 'Maroc', lat: 31.9314, lng: -4.4266 },
-  { name: 'Laâyoune', country: 'Maroc', lat: 27.1536, lng: -13.2033, aliases: ['laayoune'] },
-  { name: 'Dakhla', country: 'Maroc', lat: 23.6848, lng: -15.9570 },
-  { name: 'Al Hoceïma', country: 'Maroc', lat: 35.2517, lng: -3.9372, aliases: ['al hoceima', 'hoceima'] },
-  { name: 'Témara', country: 'Maroc', lat: 33.9287, lng: -6.9066, aliases: ['temara'] },
-  { name: 'Taroudant', country: 'Maroc', lat: 30.4703, lng: -8.8770 },
+  // --- Catalogue Complet des Villes du Maroc (12 régions administratives) ---
+  ...MOROCCO_CITIES.map((c) => ({
+    name: c.name,
+    country: 'Maroc',
+    lat: c.lat,
+    lng: c.lng,
+    aliases: c.aliases,
+  })),
 
   // --- International (Europe, Maghreb, Moyen-Orient, Amérique, Asie) ---
   { name: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522 },

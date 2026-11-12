@@ -30,6 +30,10 @@ interface AppContextType {
   mobileSidebarOpen: boolean;
   setMobileSidebarOpen: (val: boolean) => void;
   toggleMobileSidebar: () => void;
+  /** État de réduction de la sidebar desktop (mode mini-sidebar compact w-20) */
+  isSidebarCollapsed: boolean;
+  setSidebarCollapsed: (val: boolean) => void;
+  toggleSidebarCollapsed: () => void;
   /** Liste des commandes enregistrées par les modules actifs */
   registeredCommands: PaletteCommand[];
   /** Permet aux modules d'enregistrer dynamiquement leurs commandes */
@@ -43,7 +47,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [demoMode, setDemoMode] = useState<boolean>(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('procuraflow_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [commandRegistry, setCommandRegistry] = useState<Record<string, PaletteCommand[]>>({});
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('procuraflow_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const setSidebarCollapsed = useCallback((val: boolean) => {
+    setIsSidebarCollapsed(val);
+    try {
+      localStorage.setItem('procuraflow_sidebar_collapsed', String(val));
+    } catch {}
+  }, []);
+
+  // Global Ctrl + B shortcut to collapse/expand desktop sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        if (
+          document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.tagName === 'TEXTAREA'
+        ) {
+          return;
+        }
+        e.preventDefault();
+        toggleSidebarCollapsed();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebarCollapsed]);
 
   // Fournisseurs service health check
   const checkBackendHealth = useCallback(async () => {
@@ -111,6 +157,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         mobileSidebarOpen,
         setMobileSidebarOpen,
         toggleMobileSidebar,
+        isSidebarCollapsed,
+        setSidebarCollapsed,
+        toggleSidebarCollapsed,
         registeredCommands,
         registerCommands,
       }}

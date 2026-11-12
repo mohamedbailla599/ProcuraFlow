@@ -12,92 +12,24 @@ import {
   Search,
   Check,
   Star,
+  Plus,
 } from 'lucide-react';
 import { Fournisseur, FournisseurRequest, ApiErrorResponse } from '../types/fournisseur';
 import { computeSupplierRating, saveSupplierRating } from '../utils/scoring';
+import { parseAddressAndCity, MOROCCAN_CITIES } from '../utils/addressParser';
+import {
+  MOROCCO_CITIES,
+  findMoroccoCity,
+} from '../../../data/moroccoCities';
 
-export const MOROCCAN_CITIES = [
-  'Casablanca',
-  'Rabat',
-  'Tanger',
-  'Marrakech',
-  'Agadir',
-  'Fès',
-  'Meknès',
-  'Oujda',
-  'Kenitra',
-  'Tétouan',
-  'Salé',
-  'Mohammédia',
-  'El Jadida',
-  'Nador',
-  'Beni Mellal',
-  'Laâyoune',
-  'Dakhla',
-  'Paris',
-  'Lyon',
-  'Marseille',
-];
-
-export function parseAddressAndCity(rawAddress?: string | null): {
-  street: string;
-  ville: string;
-  customVille: string;
-} {
-  if (!rawAddress || !rawAddress.trim()) {
-    return { street: '', ville: '', customVille: '' };
-  }
-
-  const trimmed = rawAddress.trim();
-
-  // 1. Check known cities
-  for (const city of MOROCCAN_CITIES) {
-    const regex = new RegExp(`\\b${city}\\b`, 'i');
-    if (regex.test(trimmed)) {
-      // Clean out the city and optional country suffix
-      let street = trimmed
-        .replace(new RegExp(`[,\\s]*\\b${city}\\b[,\\s]*(?:Maroc|France|Morocco)?`, 'i'), '')
-        .trim();
-      street = street.replace(/^[,\s]+|[,\s]+$/g, '').trim();
-      return {
-        street,
-        ville: city,
-        customVille: '',
-      };
-    }
-  }
-
-  // 2. Comma separated fallback
-  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    let cityCandidate = parts[parts.length - 1];
-    let streetSlice = parts.slice(0, parts.length - 1);
-
-    if (['maroc', 'france', 'morocco'].includes(cityCandidate.toLowerCase()) && parts.length >= 2) {
-      cityCandidate = parts[parts.length - 2];
-      streetSlice = parts.slice(0, parts.length - 2);
-    }
-
-    return {
-      street: streetSlice.join(', '),
-      ville: 'Autre',
-      customVille: cityCandidate,
-    };
-  }
-
-  // 3. Fallback: entire string as street
-  return {
-    street: trimmed,
-    ville: '',
-    customVille: '',
-  };
-}
+export { MOROCCAN_CITIES, parseAddressAndCity };
 
 interface FournisseurModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: FournisseurRequest) => Promise<void>;
   fournisseurToEdit?: Fournisseur | null;
+  customCities?: string[];
 }
 
 export const FournisseurModal: React.FC<FournisseurModalProps> = ({
@@ -105,6 +37,7 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
   onClose,
   onSubmit,
   fournisseurToEdit,
+  customCities,
 }) => {
   const [nom, setNom] = useState('');
   const [email, setEmail] = useState('');
@@ -209,12 +142,47 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isCityDropdownOpen, onClose]);
 
-  // Filtered cities list based on search query
+  // Build comprehensive displayed cities list (Morocco catalogue + optional DB extras)
+  const displayedCities = useMemo(() => {
+    const list: Array<{ name: string; region?: string; isCustom?: boolean }> = MOROCCO_CITIES.map(
+      (c) => ({
+        name: c.name,
+        region: c.region,
+        isCustom: false,
+      })
+    );
+
+    // If customCities were passed (from database suppliers), append any unique non-Morocco ones
+    if (customCities && customCities.length > 0) {
+      const knownNames = new Set(MOROCCO_CITIES.map((c) => c.name.toLowerCase()));
+      customCities.forEach((city) => {
+        const clean = city.trim();
+        if (clean && !knownNames.has(clean.toLowerCase())) {
+          list.push({
+            name: clean,
+            region: 'Autre localisation',
+            isCustom: true,
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [customCities]);
+
+  // Filtered cities list based on search query (matching name, region or aliases)
   const filteredCities = useMemo(() => {
-    if (!citySearchQuery.trim()) return MOROCCAN_CITIES;
-    const query = citySearchQuery.toLowerCase().trim();
-    return MOROCCAN_CITIES.filter((c) => c.toLowerCase().includes(query));
-  }, [citySearchQuery]);
+    const query = citySearchQuery.trim().toLowerCase();
+    if (!query) return displayedCities;
+
+    return displayedCities.filter((c) => {
+      if (c.name.toLowerCase().includes(query)) return true;
+      if (c.region && c.region.toLowerCase().includes(query)) return true;
+      const morocco = findMoroccoCity(c.name);
+      if (morocco?.aliases?.some((a) => a.toLowerCase().includes(query))) return true;
+      return false;
+    });
+  }, [displayedCities, citySearchQuery]);
 
   // Live preview of combined address
   const effectiveCity = selectedVille === 'Autre' ? customVille.trim() : selectedVille.trim();
@@ -490,18 +458,18 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
 
                 {/* Floating Popover */}
                 {isCityDropdownOpen && (
-                  <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-scale-in">
+                  <div className="absolute z-30 left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-scale-in">
                     {/* Search input in dropdown */}
-                    <div className="p-2 border-b border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/80">
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/80">
                       <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
                           autoFocus
                           value={citySearchQuery}
                           onChange={(e) => setCitySearchQuery(e.target.value)}
-                          placeholder="Rechercher une ville..."
-                          className="w-full h-8 pl-8 pr-2.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 placeholder:text-slate-400"
+                          placeholder="Rechercher une ville (ex: Guelmim, Souss)..."
+                          className="w-full h-8 pl-8 pr-7 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 placeholder:text-slate-400"
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') {
                               e.stopPropagation();
@@ -509,31 +477,63 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
                             }
                           }}
                         />
+                        {citySearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setCitySearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                            title="Effacer la recherche"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5 px-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                          {citySearchQuery
+                            ? `${filteredCities.length} résultat(s)`
+                            : `Catalogue National (${displayedCities.length})`}
+                        </span>
+                        {selectedVille && (
+                          <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium truncate max-w-[140px]">
+                            Actif : {selectedVille}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Cities List */}
-                    <div className="max-h-48 overflow-y-auto p-1.5 space-y-0.5 text-xs">
+                    <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5 text-xs">
                       {filteredCities.map((c) => {
-                        const isSelected = selectedVille === c;
+                        const isSelected =
+                          selectedVille.toLowerCase() === c.name.toLowerCase();
                         return (
                           <button
-                            key={c}
+                            key={c.name}
                             type="button"
                             onClick={() => {
-                              setSelectedVille(c);
+                              setSelectedVille(c.name);
                               setCustomVille('');
                               setIsCityDropdownOpen(false);
                               setCitySearchQuery('');
                             }}
-                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition-colors text-left ${
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg font-medium transition-colors text-left cursor-pointer ${
                               isSelected
-                                ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
+                                ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-900 dark:text-teal-200 font-semibold'
                                 : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
                             }`}
                           >
-                            <span>{c}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
+                            <div className="min-w-0 pr-2">
+                              <span className="block truncate">{c.name}</span>
+                              {c.region && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate font-normal">
+                                  {c.region}
+                                </span>
+                              )}
+                            </div>
+                            {isSelected && (
+                              <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                            )}
                           </button>
                         );
                       })}
@@ -541,7 +541,7 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
                       {/* If search query doesn't match any city, offer to use it directly */}
                       {citySearchQuery.trim() &&
                         !filteredCities.some(
-                          (c) => c.toLowerCase() === citySearchQuery.trim().toLowerCase()
+                          (c) => c.name.toLowerCase() === citySearchQuery.trim().toLowerCase()
                         ) && (
                           <button
                             type="button"
@@ -551,9 +551,10 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
                               setIsCityDropdownOpen(false);
                               setCitySearchQuery('');
                             }}
-                            className="w-full flex items-center space-x-1 px-2.5 py-2 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 font-medium transition-colors text-left"
+                            className="w-full flex items-center space-x-1.5 px-2.5 py-2 rounded-lg text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40 font-medium transition-colors text-left cursor-pointer"
                           >
-                            <span>+ Utiliser « {citySearchQuery.trim()} » comme ville</span>
+                            <Plus className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Utiliser « {citySearchQuery.trim()} » comme ville</span>
                           </button>
                         )}
 
@@ -566,10 +567,10 @@ export const FournisseurModal: React.FC<FournisseurModalProps> = ({
                           setIsCityDropdownOpen(false);
                           setCitySearchQuery('');
                         }}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition-colors text-left ${
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-medium transition-colors text-left cursor-pointer ${
                           selectedVille === 'Autre'
                             ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300'
-                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                            : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/60'
                         }`}
                       >
                         <span>Autre ville (saisir manuellement)...</span>

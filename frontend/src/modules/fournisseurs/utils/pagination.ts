@@ -1,5 +1,6 @@
 import { Fournisseur, FournisseurStats, PageResponse } from '../types/fournisseur';
 import { computeSupplierRating } from './scoring';
+import { MOROCCO_CITY_NAMES } from '../../../data/moroccoCities';
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
@@ -8,23 +9,7 @@ export const MAX_PAGE_SIZE = 50;
 export const ENTRANCE_ITEM_DURATION_MS = 260;
 
 const KNOWN_CITIES = [
-  'Casablanca',
-  'Rabat',
-  'Tanger',
-  'Marrakech',
-  'Agadir',
-  'Fès',
-  'Meknès',
-  'Oujda',
-  'Kénitra',
-  'Tétouan',
-  'Salé',
-  'Mohammédia',
-  'El Jadida',
-  'Nador',
-  'Béni Mellal',
-  'Laâyoune',
-  'Dakhla',
+  ...MOROCCO_CITY_NAMES,
   'Paris',
   'Lyon',
   'Marseille',

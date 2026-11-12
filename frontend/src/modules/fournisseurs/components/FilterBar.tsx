@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -25,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
+import { findMoroccoCity } from '../../../data/moroccoCities';
 
 export type SortOption =
   | 'name-asc'
@@ -316,6 +318,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     key: string;
     category: string;
     value: string;
+    icon: React.ReactNode;
+    colorClass: string;
     onRemove: () => void;
   }> = [];
 
@@ -324,6 +328,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       key: 'search',
       category: 'Recherche',
       value: `"${searchTerm.trim()}"`,
+      icon: <Search className="w-3 h-3 text-sky-500" />,
+      colorClass:
+        'bg-sky-50/80 dark:bg-sky-950/40 border-sky-200/90 dark:border-sky-800/60 text-sky-900 dark:text-sky-200',
       onRemove: () => onSearchChange(''),
     });
   }
@@ -332,6 +339,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       key: 'status',
       category: 'Statut',
       value: statusFilter === 'active' ? 'Actif' : 'Inactif',
+      icon:
+        statusFilter === 'active' ? (
+          <ShieldCheck className="w-3 h-3 text-emerald-500" />
+        ) : (
+          <SlidersHorizontal className="w-3 h-3 text-slate-500" />
+        ),
+      colorClass:
+        statusFilter === 'active'
+          ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200/90 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
+          : 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200',
       onRemove: () => onStatusFilterChange('all'),
     });
   }
@@ -340,6 +357,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       key: 'city',
       category: 'Ville',
       value: cityFilter,
+      icon: <MapPin className="w-3 h-3 text-teal-500" />,
+      colorClass:
+        'bg-teal-50/80 dark:bg-teal-950/40 border-teal-200/90 dark:border-teal-800/60 text-teal-900 dark:text-teal-200',
       onRemove: () => onCityFilterChange('all'),
     });
   }
@@ -348,6 +368,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       key: 'sort',
       category: 'Tri',
       value: currentSort.label,
+      icon: <ArrowUpDown className="w-3 h-3 text-violet-500" />,
+      colorClass:
+        'bg-violet-50/80 dark:bg-violet-950/40 border-violet-200/90 dark:border-violet-800/60 text-violet-900 dark:text-violet-200',
       onRemove: () => onSortChange('name-asc'),
     });
   }
@@ -361,11 +384,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       className="bg-white dark:bg-slate-900/95 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs mb-5 transition-colors duration-200"
     >
       {/* Main Toolbar Row */}
-      <div className="p-3 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="p-3 sm:px-4 sm:py-3 flex flex-wrap lg:flex-nowrap items-center justify-between gap-2">
         {/* Left Cluster: Search + Status Segmented + Sort + Location */}
-        <div className="flex flex-wrap items-center gap-1.5 2xl:gap-2 flex-1 min-w-0">
-          {/* 1. Primary Search Input (full-width on narrow phones, fluid up to 260px at xl / 340px at 2xl) */}
-          <div className="group relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[260px] 2xl:max-w-sm">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 2xl:gap-2 flex-1 min-w-0">
+          {/* 1. Primary Search Input (full-width on narrow phones, fluid up to 220px at xl / 320px at 2xl) */}
+          <div className="group relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[150px] sm:max-w-[220px] 2xl:max-w-xs">
             <Search
               aria-hidden="true"
               className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 group-focus-within:text-teal-600 dark:group-focus-within:text-teal-400 transition-colors pointer-events-none"
@@ -588,7 +611,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               >
                 <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                    Localisation ({availableCities.length})
+                    Villes du Maroc ({availableCities.length})
                   </span>
                   {isCityCustom && (
                     <button
@@ -610,14 +633,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                       type="text"
                       value={citySearch}
                       onChange={(e) => setCitySearch(e.target.value)}
-                      placeholder="Filtrer les villes..."
+                      placeholder="Rechercher une ville (ex: Guelmim)..."
                       aria-label="Filtrer la liste des villes"
                       className="w-full h-8 px-2.5 text-xs bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
                 )}
 
-                <div className="py-1 max-h-60 overflow-y-auto">
+                <div className="py-1 max-h-64 overflow-y-auto">
                   <button
                     type="button"
                     role="menuitemradio"
@@ -654,6 +677,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   {filteredCities.length > 0 ? (
                     filteredCities.map((city) => {
                       const selected = cityFilter.toLowerCase() === city.toLowerCase();
+                      const moroccoInfo = findMoroccoCity(city);
                       return (
                         <button
                           key={city}
@@ -678,7 +702,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                                   : 'text-slate-400 dark:text-slate-500'
                               }`}
                             />
-                            <span className="truncate">{city}</span>
+                            <div className="truncate">
+                              <span className="block truncate">{city}</span>
+                              {moroccoInfo && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 block truncate font-normal">
+                                  {moroccoInfo.region}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {selected && (
                             <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
@@ -706,7 +737,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         />
 
         {/* Right Cluster: Unified View Selector + Import + Export Dropdown + Refresh + CTA */}
-        <div className="flex flex-wrap items-center justify-between gap-2 shrink-0 w-full xl:w-auto xl:justify-end pt-2.5 xl:pt-0 border-t border-slate-100 dark:border-slate-800/60 xl:border-t-0">
+        <div className="flex items-center gap-1.5 2xl:gap-2 shrink-0">
           {/* 5. Unified View Selector (List / Grid / Map) */}
           <div
             role="tablist"
@@ -939,15 +970,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               )}
             </div>
 
-            {/* 6. Primary Creation CTA */}
+            {/* 6. Primary Creation CTA (Icon-only to save space and preserve single-line toolbar) */}
             <button
               type="button"
               onClick={onOpenCreateModal}
-              className={`h-9 px-3.5 rounded-lg bg-teal-600 hover:bg-teal-500 active:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 text-white text-xs font-semibold shadow-xs hover:shadow-sm inline-flex items-center gap-1.5 whitespace-nowrap transition-all duration-150 active:scale-[0.98] cursor-pointer ${CONTROL_FOCUS_RING}`}
+              title="Nouveau Fournisseur"
+              aria-label="Nouveau Fournisseur"
+              className={`h-9 w-9 rounded-lg bg-teal-600 hover:bg-teal-500 active:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 text-white shadow-xs hover:shadow-sm inline-flex items-center justify-center shrink-0 transition-all duration-150 active:scale-[0.95] cursor-pointer ${CONTROL_FOCUS_RING}`}
             >
-              <Plus className="w-4 h-4 shrink-0" />
-              <span className="hidden min-[440px]:inline">Nouveau Fournisseur</span>
-              <span className="min-[440px]:hidden">Nouveau</span>
+              <Plus className="w-5 h-5 shrink-0" />
             </button>
           </div>
         </div>
@@ -955,27 +986,31 @@ export const FilterBar: React.FC<FilterBarProps> = ({
 
       {/* Conditional Active Filters Strip */}
       {hasActiveFilters && (
-        <div className="border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/35 px-3.5 sm:px-4 py-2 rounded-b-2xl flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-1">
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>Filtres actifs :</span>
+        <div className="border-t border-slate-100 dark:border-slate-800/80 bg-gradient-to-r from-slate-50/80 via-slate-50/40 to-slate-50/80 dark:from-slate-900/40 dark:via-slate-900/20 dark:to-slate-900/40 px-3.5 sm:px-4 py-2.5 rounded-b-2xl flex flex-wrap items-center justify-between gap-2.5 transition-all">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mr-1">
+              <SlidersHorizontal className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+              <span>Filtres ({activeFilterChips.length})</span>
             </span>
 
             {activeFilterChips.map((chip) => (
               <span
                 key={chip.key}
-                className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-0.5 rounded-md text-[11px] bg-white dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 shadow-2xs"
+                className={`inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg text-xs border shadow-2xs transition-all hover:shadow-xs ${chip.colorClass}`}
               >
-                <span className="text-slate-400 dark:text-slate-400">{chip.category} :</span>
-                <span className="font-semibold text-slate-900 dark:text-white">{chip.value}</span>
+                {chip.icon}
+                <span className="text-[10px] font-semibold opacity-75 uppercase tracking-wider">
+                  {chip.category} :
+                </span>
+                <span className="font-bold">{chip.value}</span>
                 <button
                   type="button"
                   onClick={chip.onRemove}
                   aria-label={`Supprimer le filtre ${chip.category}`}
-                  className={`p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer ${CONTROL_FOCUS_RING}`}
+                  title={`Supprimer le filtre ${chip.category}`}
+                  className="p-0.5 ml-0.5 rounded-md hover:bg-black/10 dark:hover:bg-white/15 text-current transition-colors cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </span>
             ))}
@@ -984,9 +1019,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <button
             type="button"
             onClick={handleClearAll}
-            className={`text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline px-1.5 py-0.5 rounded transition-colors cursor-pointer ${CONTROL_FOCUS_RING}`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50/80 dark:hover:bg-rose-950/40 px-2.5 py-1 rounded-lg transition-all duration-150 cursor-pointer"
           >
-            Effacer tout
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Réinitialiser les filtres</span>
           </button>
         </div>
       )}

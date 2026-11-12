@@ -13,6 +13,8 @@ import {
   X,
   RefreshCw,
   Info,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { Fournisseur } from '../types/fournisseur';
 import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
@@ -90,9 +92,29 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
   const [tileMode, setTileMode] = useState<TileStyleMode>('auto');
   const [exactCache, setExactCache] = useState(() => getExactCoordinatesCache());
   const [showUnlocalizedPanel, setShowUnlocalizedPanel] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [geocodingId, setGeocodingId] = useState<number | null>(null);
   const geocodingIdRef = useRef<number | null>(null);
   geocodingIdRef.current = geocodingId;
+
+  // Handle Escape key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
+  // Recalculate container size on fullscreen toggle
+  useEffect(() => {
+    const t = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [isFullscreen]);
 
   // Resolve locations for all visible suppliers
   const resolvedLocations = useMemo<ResolvedLocation[]>(() => {
@@ -391,15 +413,25 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
         ? 'border-2 border-white dark:border-slate-900 ring-2 ring-teal-500/40'
         : 'border-2 border-dashed border-white dark:border-slate-900 ring-2 ring-sky-400/50';
 
+      const pulseHalo = f.actif
+        ? `
+          <span class="absolute -inset-1 rounded-full ${
+            isExact ? 'bg-teal-400/40 dark:bg-teal-300/40' : 'bg-sky-400/40 dark:bg-sky-300/40'
+          } animate-ping pointer-events-none"></span>
+          <span class="absolute -inset-2 rounded-full border border-teal-500/30 dark:border-teal-400/30 animate-pulse pointer-events-none"></span>
+        `
+        : '';
+
       const iconHtml = `
-        <div class="relative flex items-center justify-center w-8 h-8 rounded-full ${bgColor} ${ringStyle} text-white shadow-md transition-transform hover:scale-110">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <div class="relative flex items-center justify-center w-8 h-8 rounded-full ${bgColor} ${ringStyle} text-white shadow-md transition-transform hover:scale-115">
+          ${pulseHalo}
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="relative z-10">
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
           ${
             isExact
-              ? '<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white"></span>'
+              ? '<span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white z-10"></span>'
               : ''
           }
         </div>
@@ -468,13 +500,19 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden animate-fade-in-up">
+    <div
+      className={`bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-200 ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 rounded-none h-screen w-screen flex flex-col'
+          : 'relative rounded-2xl animate-fade-in-up'
+      }`}
+    >
       {/* Top Map Control & Legend Header */}
-      <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
         {/* Left: Precision Legend & Counts */}
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
           <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 font-semibold">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-600 ring-2 ring-emerald-400/50 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-600 ring-2 ring-emerald-400/50 inline-block animate-pulse" />
             <span>Position exacte ({exactLocations.length})</span>
           </div>
 
@@ -490,7 +528,7 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
             <button
               type="button"
               onClick={() => setShowUnlocalizedPanel((prev) => !prev)}
-              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border font-semibold transition-all ${
+              className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border font-semibold transition-all cursor-pointer ${
                 showUnlocalizedPanel
                   ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                   : 'bg-amber-50 dark:bg-amber-950/60 border-amber-200/80 dark:border-amber-800/80 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60'
@@ -502,12 +540,12 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
           )}
         </div>
 
-        {/* Right: Quick Nav & Map Theme Switcher */}
+        {/* Right: Quick Nav, Map Theme Switcher & Fullscreen Button */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             type="button"
             onClick={handleCenterMorocco}
-            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold shadow-2xs transition-colors"
+            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold shadow-2xs transition-colors cursor-pointer"
           >
             <MapPin className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
             <span>Maroc</span>
@@ -517,7 +555,7 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
             type="button"
             onClick={handleFitAll}
             disabled={localizedLocations.length === 0}
-            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold shadow-2xs transition-colors disabled:opacity-40"
+            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
             <span>Tout voir</span>
@@ -528,7 +566,7 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
             <button
               type="button"
               onClick={() => setTileMode('auto')}
-              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
+              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 tileMode === 'auto'
                   ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-2xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -539,7 +577,7 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
             <button
               type="button"
               onClick={() => setTileMode('osm')}
-              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
+              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 tileMode === 'osm'
                   ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-2xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -550,7 +588,7 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
             <button
               type="button"
               onClick={() => setTileMode('carto-dark')}
-              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
+              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                 tileMode === 'carto-dark'
                   ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-2xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -559,11 +597,31 @@ export const FournisseurMap: React.FC<FournisseurMapProps> = ({
               Sombre
             </button>
           </div>
+
+          {/* Fullscreen Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            title={isFullscreen ? 'Quitter le plein écran (Échap)' : 'Afficher la carte en plein écran'}
+            className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50/70 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span className="hidden sm:inline">Réduire</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span className="hidden sm:inline">Plein écran</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Main Map Area + Optional Unlocalized Drawer */}
-      <div className="relative flex flex-col lg:flex-row h-[580px]">
+      <div className={`relative flex flex-col lg:flex-row ${isFullscreen ? 'flex-1 min-h-0' : 'h-[580px]'}`}>
         {/* Interactive Leaflet Container */}
         <div className="relative flex-1 h-full">
           <div ref={mapContainerRef} className="w-full h-full" />
