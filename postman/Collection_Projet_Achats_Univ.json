@@ -1,8 +1,775 @@
 {
   "info": {
-    "name": "Projet Achats Univ",
-    "description": "Collection à compléter avec les requêtes des services achats.",
+    "name": "ProcuraFlow — Projet Achats Univ",
+    "description": "Collection Postman partagée pour tester les microservices ProcuraFlow (Fournisseurs, Commandes, Réceptions, Factures).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": []
+  "item": [
+    {
+      "name": "1. Service Fournisseurs (Mohamed - 8081)",
+      "item": [
+        {
+          "name": "Créer un fournisseur (201 Created)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Atlas Fournitures\",\n  \"email\": \"contact@atlas.example\",\n  \"telephone\": \"+212600000000\",\n  \"adresse\": \"Agadir, Maroc\"\n}"
+            },
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lister les fournisseurs actifs (200 OK)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filtrer les fournisseurs par nom et statut (200 OK)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs?actif=true&nom=Atlas",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs"
+              ],
+              "query": [
+                {
+                  "key": "actif",
+                  "value": "true"
+                },
+                {
+                  "key": "nom",
+                  "value": "Atlas"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consulter un fournisseur par ID (200 OK / 404 Not Found)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs",
+                "{{fournisseurId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mettre à jour un fournisseur (200 OK)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Atlas Fournitures Maroc\",\n  \"email\": \"contact@atlas.example\",\n  \"telephone\": \"+212528840000\",\n  \"adresse\": \"Zone Industrielle Tassila, Agadir\"\n}"
+            },
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs",
+                "{{fournisseurId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Désactiver logiquement un fournisseur - PATCH (200 OK)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}/desactiver",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs",
+                "{{fournisseurId}}",
+                "desactiver"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Désactiver logiquement un fournisseur - DELETE contrat (204 No Content)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs",
+                "{{fournisseurId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Historique des commandes d'un fournisseur via Commandes (200 OK / 503)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}/commandes",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "fournisseurs",
+                "{{fournisseurId}}",
+                "commandes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Santé du service (Actuator Health)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FOURNISSEURS_BASE_URL}}/actuator/health",
+              "host": [
+                "{{FOURNISSEURS_BASE_URL}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Service Factures (Hamza - 8084)",
+      "description": "API REST du Microservice Factures : validation de conformité, enregistrement sur Neon DB avec Drizzle ORM, gestion du cycle de vie et paiements.",
+      "item": [
+        {
+          "name": "1. Santé du service - GET /api/health (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Service is UP\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"UP\");",
+                  "    pm.expect(jsonData.service).to.eql(\"service-factures\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/health",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. Créer une facture - POST /api/factures (201 Created)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Facture créée avec succès\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.statut_paiement).to.eql(\"NON_PAYEE\");",
+                  "    pm.expect(jsonData.data.numero_facture).to.be.a(\"string\");",
+                  "});",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.environment.set(\"factureId\", jsonData.data.id);",
+                  "    console.log(\"Variable factureId mise à jour avec :\", jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commande_id\": {{commandeId}},\n  \"reception_id\": {{receptionId}},\n  \"montant_facture\": 1500.00,\n  \"date_facture\": \"2026-11-12\"\n}"
+            },
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. Lister toutes les factures - GET /api/factures (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Retourne une liste de factures\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Consulter une facture par ID - GET /api/factures/:id (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Données de la facture cohérentes\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.id).to.eql(Number(pm.environment.get(\"factureId\")));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures/{{factureId}}",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures",
+                "{{factureId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. Modifier une facture - PUT /api/factures/:id (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Montant mis à jour\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.montant_facture).to.eql(1750.50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"montant_facture\": 1750.50,\n  \"date_facture\": \"2026-11-15\"\n}"
+            },
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures/{{factureId}}",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures",
+                "{{factureId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Valider le paiement - PATCH /api/factures/:id/paiement (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Statut passé à PAYEE\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.statut_paiement).to.eql(\"PAYEE\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut_paiement\": \"PAYEE\"\n}"
+            },
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures/{{factureId}}/paiement",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures",
+                "{{factureId}}",
+                "paiement"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. Supprimer une facture - DELETE /api/factures/:id (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Suppression confirmée\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{FACTURES_BASE_URL}}/api/factures/{{factureId}}",
+              "host": [
+                "{{FACTURES_BASE_URL}}"
+              ],
+              "path": [
+                "api",
+                "factures",
+                "{{factureId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Tests de Recette & Cas d'Erreurs",
+          "description": "Validation des codes erreurs HTTP (400, 404, 409) et règles de gestion.",
+          "item": [
+            {
+              "name": "Erreur 400 - Montant négatif",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Contient message d'erreur montant\", function () {",
+                      "    var jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.success).to.be.false;",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"commande_id\": 1,\n  \"reception_id\": 1,\n  \"montant_facture\": -50.00\n}"
+                },
+                "url": {
+                  "raw": "{{FACTURES_BASE_URL}}/api/factures",
+                  "host": [
+                    "{{FACTURES_BASE_URL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "factures"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Erreur 400 - Champs obligatoires manquants",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"date_facture\": \"2026-11-12\"\n}"
+                },
+                "url": {
+                  "raw": "{{FACTURES_BASE_URL}}/api/factures",
+                  "host": [
+                    "{{FACTURES_BASE_URL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "factures"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Erreur 400 - ID non numérique",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{FACTURES_BASE_URL}}/api/factures/invalide",
+                  "host": [
+                    "{{FACTURES_BASE_URL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "factures",
+                    "invalide"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Erreur 404 - Facture inexistante",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{FACTURES_BASE_URL}}/api/factures/999999",
+                  "host": [
+                    "{{FACTURES_BASE_URL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "factures",
+                    "999999"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Erreur 400 - Statut de paiement non supporté",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"statut_paiement\": \"STATUT_INCONNU\"\n}"
+                },
+                "url": {
+                  "raw": "{{FACTURES_BASE_URL}}/api/factures/{{factureId}}/paiement",
+                  "host": [
+                    "{{FACTURES_BASE_URL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "factures",
+                    "{{factureId}}",
+                    "paiement"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
