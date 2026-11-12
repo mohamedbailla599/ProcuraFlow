@@ -21,12 +21,33 @@ export async function getCommandesByFournisseur(fournisseurId: number): Promise<
 }
 
 export async function createCommande(payload: CreateCommandePayload): Promise<Commande> {
+  // Calcul automatique du montant total pour correspondre au format attendu par le backend
+  const montantTotal = payload.lignesCommande.reduce(
+    (acc, ligne) => acc + ligne.quantite * ligne.prixUnitaire,
+    0
+  );
+
+  const finalPayload = {
+    fournisseurId: Number(payload.fournisseurId),
+    montantTotal: montantTotal,
+    statut: payload.statut || 'EN_ATTENTE',
+    lignesCommande: payload.lignesCommande.map((l) => ({
+      designation: l.designation,
+      quantite: Number(l.quantite),
+      prixUnitaire: Number(l.prixUnitaire),
+    })),
+  };
+
   const res = await fetch(BASE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(finalPayload),
   });
-  if (!res.ok) throw new Error(`Erreur lors de la création (${res.status})`);
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Erreur serveur (${res.status}) : ${errorText}`);
+  }
   return res.json();
 }
 
