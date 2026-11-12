@@ -313,13 +313,13 @@ export const CommandesPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Création */}
+      {/* Modal Création (Redesigné & Pro) */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Nouvelle Commande"
-        description="Renseignez l'ID du fournisseur et ajoutez les lignes d'achat."
-        maxWidth="2xl"
+        description="Renseignez l'identifiant du fournisseur et configurez les lignes d'achat."
+        maxWidth="3xl"
         footer={
           <>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
@@ -331,69 +331,111 @@ export const CommandesPage: React.FC = () => {
           </>
         }
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">ID du Fournisseur</label>
-            <input
-              type="number"
-              required
-              min={1}
-              value={fournisseurId}
-              onChange={(e) => setFournisseurId(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
-            />
+        <form onSubmit={handleCreateSubmit} className="space-y-6">
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+              Identifiant du Fournisseur
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                required
+                min={1}
+                placeholder="Ex: 5"
+                value={fournisseurId}
+                onChange={(e) => setFournisseurId(Number(e.target.value))}
+                className="w-full sm:w-1/2 px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <label className="block text-sm font-medium">Lignes de commande</label>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Lignes de commande</h4>
+                <p className="text-xs text-slate-500">Ajoutez les articles composant ce bon de commande.</p>
+              </div>
               <Button type="button" variant="teal-subtle" size="xs" icon={<Plus className="w-3.5 h-3.5" />} onClick={handleAddLigne}>
                 Ajouter une ligne
               </Button>
             </div>
 
-            {lignes.map((ligne, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
-                <input
-                  type="text"
-                  required
-                  placeholder="Désignation (ex: PC Portable)"
-                  value={ligne.designation}
-                  onChange={(e) => handleLigneChange(index, 'designation', e.target.value)}
-                  className="col-span-6 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-                />
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="Qté"
-                  value={ligne.quantite}
-                  onChange={(e) => handleLigneChange(index, 'quantite', Number(e.target.value))}
-                  className="col-span-2 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-                />
-                <input
-                  type="number"
-                  required
-                  min={0}
-                  step="0.01"
-                  placeholder="Prix U."
-                  value={ligne.prixUnitaire}
-                  onChange={(e) => handleLigneChange(index, 'prixUnitaire', Number(e.target.value))}
-                  className="col-span-3 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-                />
-                <div className="col-span-1 text-right">
-                  {lignes.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveLigne(index)}
-                      className="text-red-500 hover:text-red-700 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+            {/* En-têtes de colonnes */}
+            <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="col-span-5">Désignation de l'article</div>
+              <div className="col-span-2 text-center">Quantité</div>
+              <div className="col-span-3 text-right">Prix Unitaire (MAD)</div>
+              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-1"></div>
+            </div>
+
+            <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+              {lignes.map((ligne, index) => {
+                const sousTotal = ligne.quantite * ligne.prixUnitaire;
+                return (
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs">
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: PC Portable Gamer"
+                        value={ligne.designation}
+                        onChange={(e) => handleLigneChange(index, 'designation', e.target.value)}
+                        className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="number"
+                        required
+                        min={1}
+                        placeholder="Qté"
+                        value={ligne.quantite}
+                        onChange={(e) => handleLigneChange(index, 'quantite', Number(e.target.value))}
+                        className="w-full px-3 py-2 text-sm text-center border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <input
+                        type="number"
+                        required
+                        min={0}
+                        step="0.01"
+                        placeholder="0.00"
+                        value={ligne.prixUnitaire}
+                        onChange={(e) => handleLigneChange(index, 'prixUnitaire', Number(e.target.value))}
+                        className="w-full px-3 py-2 text-sm text-right border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-1 text-right text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {sousTotal.toFixed(2)} MAD
+                    </div>
+                    <div className="sm:col-span-1 text-right">
+                      {lignes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLigne(index)}
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                          title="Supprimer la ligne"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Encadré du montant total estimé */}
+            <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3 rounded-xl mt-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
+                Montant Total Estimé
+              </span>
+              <span className="text-base font-extrabold text-teal-700 dark:text-teal-400">
+                {lignes.reduce((acc, l) => acc + l.quantite * l.prixUnitaire, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'MAD' })}
+              </span>
+            </div>
           </div>
         </form>
       </Modal>
