@@ -1,111 +1,402 @@
-import React from 'react';
-import { ShoppingBag, Server, Database, ArrowRight, ShieldAlert } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { PageHeader } from '../../../components/ui/PageHeader';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../components/ui/Card';
-import { Badge } from '../../../components/ui/Badge';
-import { Button } from '../../../components/ui/Button';
+import React, { useState, useEffect } from 'react';
+import {
+  PageHeader,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Modal,
+  LoadingState,
+  EmptyState,
+  ErrorState,
+} from '../../../components/ui';
+import { Plus, Trash2, Eye, Search, RefreshCw, Package } from 'lucide-react';
+import {
+  getAllCommandes,
+  getCommandesByFournisseur,
+  createCommande,
+  updateCommandeStatut,
+  deleteCommande,
+} from '../api';
+import { Commande, LigneCommande } from '../types';
+import { formatMontant, formatDate } from '../utils';
 
 export const CommandesPage: React.FC = () => {
+  const [commandes, setCommandes] = useState<Commande[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [fournisseurFilter, setFournisseurFilter] = useState<string>('');
+
+  // Modals
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedCommande, setSelectedCommande] = useState<Commande | null>(null);
+
+  // Formulaire nouvelle commande
+  const [fournisseurId, setFournisseurId] = useState<number>(1);
+  const [lignes, setLignes] = useState<Omit<LigneCommande, 'id'>[]>([
+    { designation: '', quantite: 1, prixUnitaire: 0 },
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadCommandes = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = fournisseurFilter.trim()
+        ? await getCommandesByFournisseur(Number(fournisseurFilter))
+        : await getAllCommandes();
+      setCommandes(data);
+    } catch (err: any) {
+      setError(err.message || 'Impossible de joindre le service Commandes (:8082)');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCommandes();
+  }, []);
+
+  const handleAddLigne = () => {
+    setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 0 }]);
+  };
+
+  const handleRemoveLigne = (index: number) => {
+    if (lignes.length > 1) {
+      setLignes(lignes.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleLigneChange = (index: number, field: keyof Omit<LigneCommande, 'id'>, value: string | number) => {
+    const updated = [...lignes];
+    updated[index] = { ...updated[index], [field]: value };
+    setLignes(updated);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await createCommande({
+        fournisseurId: Number(fournisseurId),
+        statut: 'EN_ATTENTE',
+        lignesCommande: lignes,
+      });
+      setIsCreateOpen(false);
+      setLignes([{ designation: '', quantite: 1, prixUnitaire: 0 }]);
+      loadCommandes();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatutChange = async (id: number, newStatut: string) => {
+    try {
+      await updateCommandeStatut(id, newStatut);
+      loadCommandes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(`Supprimer la commande #${id} ?`)) return;
+    try {
+      await deleteCommande(id);
+      loadCommandes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const getStatutBadge = (statut: string) => {
+    switch (statut) {
+      case 'VALIDEE':
+      case 'LIVREE':
+        return <Badge variant="success" dot size="sm">{statut}</Badge>;
+      case 'ANNULEE':
+        return <Badge variant="danger" dot size="sm">{statut}</Badge>;
+      case 'EN_COURS':
+        return <Badge variant="info" dot size="sm">{statut}</Badge>;
+      default:
+        return <Badge variant="warning" dot size="sm">{statut}</Badge>;
+    }
+  };
+
   return (
-    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6 animate-fade-in-up">
-      {/* Page Header with Shared Component */}
+    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
       <PageHeader
-        badge={
-          <Badge variant="warning" dot size="sm">
-            Module en préparation • Phase 3
-          </Badge>
-        }
-        title="Gestion des Commandes d'Achat"
-        description="Création, validation des bons de commande et gestion des lignes d'articles associées aux fournisseurs référencés."
+        badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
+        title="Gestion des Commandes"
+        description="Créez, suivez et gérez les bons de commande et leurs lignes d'achat."
         actions={
-          <Link to="/fournisseurs">
-            <Button variant="primary" size="sm" icon={<ArrowRight className="w-4 h-4" />}>
-              Consulter les Fournisseurs
+          <div className="flex gap-2">
+            <Button variant="outline" size="md" icon={<RefreshCw className="w-4 h-4" />} onClick={loadCommandes}>
+              Actualiser
             </Button>
-          </Link>
+            <Button variant="primary" size="md" icon={<Plus className="w-4 h-4" />} onClick={() => setIsCreateOpen(true)}>
+              Nouvelle Commande
+            </Button>
+          </div>
         }
       />
 
-      {/* Specifications Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-2">
-              <Server className="w-5 h-5" />
+      {/* Recherche par fournisseur */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="number"
+                placeholder="Filtrer par ID Fournisseur (ex: 5)..."
+                value={fournisseurFilter}
+                onChange={(e) => setFournisseurFilter(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
             </div>
-            <CardTitle>Microservice Dédié</CardTitle>
-            <CardDescription>service-commandes-yassine</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Responsable :</span> <span className="font-semibold text-slate-800 dark:text-slate-200">Yassine</span></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Stack :</span> Java 21 / Spring Boot 3</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Port local :</span> <code className="text-teal-600 dark:text-teal-400 font-bold font-mono">:8082</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Statut :</span> <Badge variant="warning" size="xs">En préparation</Badge></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
-              <Database className="w-5 h-5" />
-            </div>
-            <CardTitle>Persistance & Données</CardTitle>
-            <CardDescription>schema_commandes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Base :</span> Neon PostgreSQL 17</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Tables :</span> <code className="text-xs font-mono">commandes, lignes_commande</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Isolation :</span> Schéma propriétaire strict</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Règle :</span> Aucun accès inter-schéma direct</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <CardTitle>Contrat d'Intégration</CardTitle>
-            <CardDescription>REST API JSON</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Endpoints :</span> <code className="text-xs font-mono text-teal-600 dark:text-teal-400">GET /api/commandes</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Filtres :</span> <code className="text-xs font-mono">?fournisseurId=&#123;id&#125;</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Consommateurs :</span> Fournisseurs, Réceptions, Factures</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Protocole :</span> HTTP REST synchrone</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Integration Notice */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-start space-x-3.5">
-          <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60 shrink-0">
-            <ShieldAlert className="w-5 h-5" />
+            <Button variant="secondary" size="md" onClick={loadCommandes}>
+              Filtrer
+            </Button>
+            {fournisseurFilter && (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => {
+                  setFournisseurFilter('');
+                  setTimeout(loadCommandes, 0);
+                }}
+              >
+                Réinitialiser
+              </Button>
+            )}
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              Prêt pour l'implémentation par Yassine
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed max-w-2xl">
-              La structure modulaire (<code className="text-xs font-mono">api/</code>, <code className="text-xs font-mono">components/</code>, <code className="text-xs font-mono">types/</code>, <code className="text-xs font-mono">utils/</code>) et les composants UI partagés (<code className="text-xs font-mono">Button</code>, <code className="text-xs font-mono">Badge</code>, <code className="text-xs font-mono">Card</code>, <code className="text-xs font-mono">Modal</code>) sont prêts à l'emploi. Le module <strong>Fournisseurs</strong> reste 100% opérationnel sur le port <code className="text-xs font-mono text-teal-600 dark:text-teal-400">:8081</code>.
-            </p>
-          </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <Link to="/fournisseurs" className="shrink-0">
-          <Button variant="outline" size="sm">
-            Voir le module actif
+      {/* Tableau des commandes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bons de commande ({commandes.length})</CardTitle>
+          <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <LoadingState message="Chargement des commandes depuis :8082..." />
+          ) : error ? (
+            <ErrorState message={error} onRetry={loadCommandes} />
+          ) : commandes.length === 0 ? (
+            <EmptyState
+              title="Aucune commande trouvée"
+              description="Créez votre premier bon de commande pour commencer."
+              action={
+                <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+                  Nouvelle Commande
+                </Button>
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-xs uppercase text-slate-500">
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Fournisseur ID</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Articles</th>
+                    <th className="py-3 px-4">Montant Total</th>
+                    <th className="py-3 px-4">Statut</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                  {commandes.map((cmd) => (
+                    <tr key={cmd.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                      <td className="py-3 px-4 font-semibold">#{cmd.id}</td>
+                      <td className="py-3 px-4">Fournisseur #{cmd.fournisseurId}</td>
+                      <td className="py-3 px-4 text-slate-500">{formatDate(cmd.dateCommande)}</td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+                          <Package className="w-3.5 h-3.5" />
+                          {cmd.lignesCommande?.length || 0} ligne(s)
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-teal-600 dark:text-teal-400">
+                        {formatMontant(cmd.montantTotal)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {getStatutBadge(cmd.statut)}
+                          <select
+                            value={cmd.statut}
+                            onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                            className="text-xs border rounded-lg px-2 py-1 bg-transparent border-slate-200 dark:border-slate-700"
+                          >
+                            <option value="EN_ATTENTE">EN_ATTENTE</option>
+                            <option value="VALIDEE">VALIDEE</option>
+                            <option value="EN_COURS">EN_COURS</option>
+                            <option value="LIVREE">LIVREE</option>
+                            <option value="ANNULEE">ANNULEE</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-2">
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          icon={<Eye className="w-3.5 h-3.5" />}
+                          onClick={() => setSelectedCommande(cmd)}
+                        >
+                          Détails
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="xs"
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          onClick={() => handleDelete(cmd.id)}
+                        >
+                          Supprimer
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal Détails */}
+      <Modal
+        isOpen={!!selectedCommande}
+        onClose={() => setSelectedCommande(null)}
+        title={`Détails de la Commande #${selectedCommande?.id}`}
+        description={`Fournisseur #${selectedCommande?.fournisseurId} — Total : ${formatMontant(selectedCommande?.montantTotal || 0)}`}
+        maxWidth="2xl"
+        footer={
+          <Button variant="outline" onClick={() => setSelectedCommande(null)}>
+            Fermer
           </Button>
-        </Link>
-      </div>
+        }
+      >
+        {selectedCommande && (
+          <div className="space-y-4">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500">
+                  <th className="py-2">Désignation</th>
+                  <th className="py-2 text-center">Quantité</th>
+                  <th className="py-2 text-right">Prix Unitaire</th>
+                  <th className="py-2 text-right">Sous-total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {selectedCommande.lignesCommande?.map((ligne, idx) => (
+                  <tr key={ligne.id || idx}>
+                    <td className="py-2.5 font-medium">{ligne.designation}</td>
+                    <td className="py-2.5 text-center">{ligne.quantite}</td>
+                    <td className="py-2.5 text-right">{formatMontant(ligne.prixUnitaire)}</td>
+                    <td className="py-2.5 text-right font-semibold">
+                      {formatMontant(ligne.quantite * ligne.prixUnitaire)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Création */}
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Nouvelle Commande"
+        description="Renseignez l'ID du fournisseur et ajoutez les lignes d'achat."
+        maxWidth="2xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="primary" loading={submitting} onClick={handleCreateSubmit}>
+              Enregistrer la commande
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">ID du Fournisseur</label>
+            <input
+              type="number"
+              required
+              min={1}
+              value={fournisseurId}
+              onChange={(e) => setFournisseurId(Number(e.target.value))}
+              className="w-full px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="block text-sm font-medium">Lignes de commande</label>
+              <Button type="button" variant="teal-subtle" size="xs" icon={<Plus className="w-3.5 h-3.5" />} onClick={handleAddLigne}>
+                Ajouter une ligne
+              </Button>
+            </div>
+
+            {lignes.map((ligne, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl">
+                <input
+                  type="text"
+                  required
+                  placeholder="Désignation (ex: PC Portable)"
+                  value={ligne.designation}
+                  onChange={(e) => handleLigneChange(index, 'designation', e.target.value)}
+                  className="col-span-6 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                />
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  placeholder="Qté"
+                  value={ligne.quantite}
+                  onChange={(e) => handleLigneChange(index, 'quantite', Number(e.target.value))}
+                  className="col-span-2 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                />
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  step="0.01"
+                  placeholder="Prix U."
+                  value={ligne.prixUnitaire}
+                  onChange={(e) => handleLigneChange(index, 'prixUnitaire', Number(e.target.value))}
+                  className="col-span-3 px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                />
+                <div className="col-span-1 text-right">
+                  {lignes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLigne(index)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
