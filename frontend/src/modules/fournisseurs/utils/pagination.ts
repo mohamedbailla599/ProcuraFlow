@@ -2,7 +2,7 @@ import { Fournisseur, FournisseurStats, PageResponse } from '../types/fournisseu
 import { computeSupplierRating } from './scoring';
 import { MOROCCO_CITY_NAMES } from '../../../data/moroccoCities';
 
-export const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+export const PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const;
 export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
 export const DEFAULT_PAGE_SIZE: PageSizeOption = 10;
 export const MAX_PAGE_SIZE = 50;

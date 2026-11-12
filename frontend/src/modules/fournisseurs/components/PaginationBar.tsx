@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, ChevronDown, Check } from 'lucide-react';
 import { PAGE_SIZE_OPTIONS, PageSizeOption, buildPageNumbers } from '../utils/pagination';
 
 interface PaginationBarProps {
@@ -23,6 +23,30 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
   onPageChange,
   onPageSizeChange,
 }) => {
+  const [isPageSizeOpen, setIsPageSizeOpen] = useState(false);
+  const pageSizeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pageSizeRef.current && !pageSizeRef.current.contains(e.target as Node)) {
+        setIsPageSizeOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsPageSizeOpen(false);
+      }
+    };
+    if (isPageSizeOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPageSizeOpen]);
+
   const safeTotalPages = Math.max(0, totalPages);
   const startItem = totalElements === 0 || currentCount === 0 ? 0 : page * size + 1;
   const endItem = totalElements === 0 || currentCount === 0 ? 0 : Math.min(totalElements, startItem + currentCount - 1);
@@ -66,27 +90,82 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
 
       {/* Right: Page size selector & page navigation controls */}
       <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-        {/* Page-size selector */}
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="suppliers-page-size"
+        {/* Modern Custom Page-size selector */}
+        <div ref={pageSizeRef} className="relative flex items-center gap-2">
+          <span
+            id="suppliers-page-size-label"
             className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap"
           >
             Par page
-          </label>
-          <select
+          </span>
+
+          <button
+            type="button"
             id="suppliers-page-size"
-            value={size}
+            aria-haspopup="listbox"
+            aria-expanded={isPageSizeOpen}
+            aria-labelledby="suppliers-page-size-label suppliers-page-size"
             disabled={loading}
-            onChange={(e) => onPageSizeChange(Number(e.target.value) as PageSizeOption)}
-            className="h-9 pl-2.5 pr-7 text-xs font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 dark:focus:border-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            onClick={() => setIsPageSizeOpen((prev) => !prev)}
+            className={`h-9 pl-3 pr-2.5 text-xs font-semibold rounded-xl border transition-all duration-150 inline-flex items-center gap-2 shadow-2xs cursor-pointer ${
+              isPageSizeOpen
+                ? 'bg-teal-50/80 dark:bg-teal-950/50 border-teal-500/90 dark:border-teal-600/80 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/20'
+                : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-750 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {PAGE_SIZE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            <span className="tabular-nums font-bold">{size}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${
+                isPageSizeOpen ? 'rotate-180 text-teal-600 dark:text-teal-400' : ''
+              }`}
+            />
+          </button>
+
+          {/* Floating Upward Popover */}
+          {isPageSizeOpen && (
+            <div
+              role="listbox"
+              aria-labelledby="suppliers-page-size-label"
+              className="absolute right-0 bottom-full mb-1.5 w-36 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700/90 rounded-xl shadow-xl py-1.5 z-50 animate-scale-in"
+            >
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Lignes par page
+              </div>
+              <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+              <div className="py-0.5">
+                {PAGE_SIZE_OPTIONS.map((option) => {
+                  const isSelected = size === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        onPageSizeChange(option);
+                        setIsPageSizeOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-teal-50/80 dark:bg-teal-950/50 text-teal-900 dark:text-teal-200 font-bold'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 font-medium'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="tabular-nums font-semibold">{option}</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-normal">
+                          lignes
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Navigation buttons */}
