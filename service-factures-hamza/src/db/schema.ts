@@ -1,3 +1,8 @@
+// =============================================================
+// src/db/schema.ts
+// Schéma Drizzle ORM aligné sur PostgreSQL / Neon DB.
+// =============================================================
+
 import { pgSchema, bigint, numeric, varchar, timestamp } from 'drizzle-orm/pg-core';
 
 // Schéma dédié : schema_factures
@@ -6,6 +11,7 @@ export const schemaFactures = pgSchema('schema_factures');
 // Table factures dans schema_factures
 export const factures = schemaFactures.table('factures', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
+  numeroFacture: varchar('numero_facture', { length: 50 }).unique(),
   commandeId: bigint('commande_id', { mode: 'number' }).notNull(),
   receptionId: bigint('reception_id', { mode: 'number' }).notNull(),
   dateFacture: timestamp('date_facture', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -17,4 +23,3 @@ export const factures = schemaFactures.table('factures', {
 
 export type FactureSelect = typeof factures.$inferSelect;
 export type FactureInsert = typeof factures.$inferInsert;
-
