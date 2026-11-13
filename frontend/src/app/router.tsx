@@ -31,6 +31,10 @@ export const router = createBrowserRouter([
         element: <FacturesPage />,
       },
       {
+        path: 'factures/*',
+        element: <FacturesPage />,
+      },
+      {
         path: '*',
         element: <Navigate to="/fournisseurs" replace />,
       },

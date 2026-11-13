@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Building2,
   ShoppingBag,
@@ -59,17 +59,21 @@ const NAV_ITEMS: NavItem[] = [
     port: ':8084',
     tech: 'Node.js',
     icon: Receipt,
-    status: 'in_preparation',
+    status: 'operational',
   },
 ];
 
 export const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     mobileSidebarOpen,
     setMobileSidebarOpen,
     isSidebarCollapsed,
     toggleSidebarCollapsed,
   } = useApp();
+
+  const isFacturesActive = location.pathname.startsWith('/factures');
 
   const handleNavClick = () => {
     if (mobileSidebarOpen) {
@@ -241,11 +245,13 @@ export const Sidebar: React.FC = () => {
             {/* Hover Tooltip */}
             <div className="absolute left-full ml-3 p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-xl border border-slate-700 text-xs w-60 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 space-y-1">
               <div className="font-bold flex items-center justify-between text-teal-400">
-                <span>Architecture 4 Microservices</span>
-                <span className="text-[10px] bg-teal-500/20 px-1.5 py-0.5 rounded">1/4 Actif</span>
+                <span>Architecture Microservices</span>
+                <span className="text-[10px] bg-teal-500/20 px-1.5 py-0.5 rounded">2/4 Actifs</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-snug">
-                Fournisseurs (:8081) connecté à Neon PostgreSQL 17. Schémas isolés par service.
+                {isFacturesActive
+                  ? 'Factures (:8084 • Node.js) connecté à Neon PostgreSQL (schema_factures).'
+                  : 'Fournisseurs (:8081) et Factures (:8084) connectés à Neon PostgreSQL.'}
               </p>
             </div>
           </div>
@@ -257,18 +263,28 @@ export const Sidebar: React.FC = () => {
                 <span>Architecture Microservices</span>
               </div>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
-                1/4 Opérationnel
+                2/4 Opérationnels
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              Module Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>) opérationnel avec Neon PostgreSQL. Commandes, Réceptions et Factures sont en cours de préparation.
+              {isFacturesActive ? (
+                <>
+                  Microservice Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084 • Node.js</span>) connecté à Neon PostgreSQL. Rapprochement 3-voies actif.
+                </>
+              ) : (
+                <>
+                  Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>) et Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084</span>) opérationnels avec Neon PostgreSQL.
+                </>
+              )}
             </p>
             <div className="pt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 border-t border-slate-200/60 dark:border-slate-800/60">
               <span className="inline-flex items-center space-x-1">
                 <Database className="w-3 h-3 text-emerald-500" />
                 <span>Neon PostgreSQL 17</span>
               </span>
-              <span className="text-teal-600 dark:text-teal-400 font-mono">REST API</span>
+              <span className="text-teal-600 dark:text-teal-400 font-mono">
+                {isFacturesActive ? 'schema_factures' : 'schema_fournisseurs'}
+              </span>
             </div>
           </div>
         )}
@@ -280,9 +296,13 @@ export const Sidebar: React.FC = () => {
           <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-medium">Passerelle ProcuraFlow</span>
+              <span className="font-medium">
+                {isFacturesActive ? 'Service Factures (Hamza)' : 'Passerelle ProcuraFlow'}
+              </span>
             </div>
-            <span className="font-mono text-[10px] text-slate-400">:5173</span>
+            <span className="font-mono text-[10px] text-slate-400">
+              {isFacturesActive ? ':8084' : ':5173'}
+            </span>
           </div>
         )}
 
