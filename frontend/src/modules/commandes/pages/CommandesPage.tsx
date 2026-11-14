@@ -28,9 +28,11 @@ import {
   X,
   Building2,
   Calendar,
-  Printer,
-  FileText,
   Hash,
+  BarChart3,
+  PieChart,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -46,6 +48,7 @@ type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | '
 type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
 
 const WORKFLOW_STEPS = ['EN_ATTENTE', 'VALIDEE', 'EN_COURS', 'LIVREE'] as const;
+const ITEMS_PER_PAGE = 5;
 
 export const CommandesPage: React.FC = () => {
   const [commandes, setCommandes] = useState<Commande[]>([]);
@@ -55,11 +58,12 @@ export const CommandesPage: React.FC = () => {
   // Liste des fournisseurs pour le sélecteur interactif & affichage enrichi
   const [fournisseursList, setFournisseursList] = useState<any[]>([]);
 
-  // Filtres & Tri
+  // Filtres, Tri & Pagination
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [fournisseurFilter, setFournisseurFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -110,7 +114,11 @@ export const CommandesPage: React.FC = () => {
     }
   }, [isCreateOpen]);
 
-  // Helper pour récupérer le nom du fournisseur si disponible
+  // Réinitialiser la page courante lorsqu'on filtre ou recherche
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, fournisseurFilter]);
+
   const getFournisseurLabel = (id: number) => {
     const found = fournisseursList.find((f) => Number(f.id) === Number(id));
     return found ? `${found.nom}` : `Fournisseur #${id}`;
@@ -163,6 +171,44 @@ export const CommandesPage: React.FC = () => {
         }
       });
   }, [commandes, statusFilter, searchQuery, sortBy, fournisseursList]);
+
+  // Données paginées pour le tableau
+  const totalPages = Math.ceil(filteredCommandes.length / ITEMS_PER_PAGE) || 1;
+  const paginatedCommandes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCommandes.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredCommandes, currentPage]);
+
+  // Statistiques pour les Charts (en bas de tableau)
+  const chartStats = useMemo(() => {
+    const total = commandes.length || 1;
+    const counts = {
+      EN_ATTENTE: commandes.filter((c) => c.statut === 'EN_ATTENTE').length,
+      VALIDEE: commandes.filter((c) => c.statut === 'VALIDEE').length,
+      EN_COURS: commandes.filter((c) => c.statut === 'EN_COURS').length,
+      LIVREE: commandes.filter((c) => c.statut === 'LIVREE').length,
+      ANNULEE: commandes.filter((c) => c.statut === 'ANNULEE').length,
+    };
+
+    // Top Fournisseurs par montant
+    const fournisseurMap: { [key: number]: number } = {};
+    commandes.forEach((c) => {
+      if (c.statut !== 'ANNULEE') {
+        fournisseurMap[c.fournisseurId] = (fournisseurMap[c.fournisseurId] || 0) + (c.montantTotal || 0);
+      }
+    });
+
+    const topFournisseurs = Object.entries(fournisseurMap)
+      .map(([id, montant]) => ({
+        id: Number(id),
+        nom: getFournisseurLabel(Number(id)),
+        montant,
+      }))
+      .sort((a, b) => b.montant - a.montant)
+      .slice(0, 3);
+
+    return { counts, topFournisseurs };
+  }, [commandes, fournisseursList]);
 
   const handleAddLigne = () => {
     setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 0 }]);
@@ -522,7 +568,7 @@ export const CommandesPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Tableau Professionnel des commandes */}
+      {/* Tableau Professionnel des commandes avec Pagination intégrée */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -531,7 +577,7 @@ export const CommandesPage: React.FC = () => {
           </CardTitle>
           <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {loading ? (
             <LoadingState message="Chargement des commandes depuis :8082..." />
           ) : error ? (
@@ -557,122 +603,242 @@ export const CommandesPage: React.FC = () => {
               }
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    <th className="py-3.5 px-4 rounded-tl-lg">Réf. BC</th>
-                    <th className="py-3.5 px-4">Fournisseur</th>
-                    <th className="py-3.5 px-4">Date Émission</th>
-                    <th className="py-3.5 px-4">Aperçu des Articles</th>
-                    <th className="py-3.5 px-4">Montant Total</th>
-                    <th className="py-3.5 px-4">Statut & Workflow</th>
-                    <th className="py-3.5 px-4 text-right rounded-tr-lg">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                  {filteredCommandes.map((cmd) => {
-                    const firstArticle = cmd.lignesCommande?.[0]?.designation;
-                    const extraCount = (cmd.lignesCommande?.length || 0) - 1;
-                    return (
-                      <tr
-                        key={cmd.id}
-                        className="group hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors"
-                      >
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center gap-1 font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs">
-                            <Hash className="w-3 h-3 text-teal-600" />
-                            BC-{String(cmd.id).padStart(4, '0')}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200/70 dark:border-teal-800/70 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-xs shrink-0">
-                              F{cmd.fournisseurId}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-slate-900 dark:text-white text-xs sm:text-sm">
-                                {getFournisseurLabel(cmd.fournisseurId)}
-                              </div>
-                              <div className="text-[11px] text-slate-400">
-                                ID Référentiel : #{cmd.fournisseurId}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-slate-400">
-                          <div className="inline-flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            {formatDate(cmd.dateCommande)}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
-                              <Package className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                              <span className="truncate max-w-[200px]">
-                                {firstArticle || 'Aucun article'}
-                              </span>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 rounded-tl-lg">Réf. BC</th>
+                      <th className="py-3.5 px-4">Fournisseur</th>
+                      <th className="py-3.5 px-4">Date Émission</th>
+                      <th className="py-3.5 px-4">Aperçu des Articles</th>
+                      <th className="py-3.5 px-4">Montant Total</th>
+                      <th className="py-3.5 px-4">Statut & Workflow</th>
+                      <th className="py-3.5 px-4 text-right rounded-tr-lg">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                    {paginatedCommandes.map((cmd) => {
+                      const firstArticle = cmd.lignesCommande?.[0]?.designation;
+                      const extraCount = (cmd.lignesCommande?.length || 0) - 1;
+                      return (
+                        <tr
+                          key={cmd.id}
+                          className="group hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors"
+                        >
+                          <td className="py-3.5 px-4">
+                            <span className="inline-flex items-center gap-1 font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs">
+                              <Hash className="w-3 h-3 text-teal-600" />
+                              BC-{String(cmd.id).padStart(4, '0')}
                             </span>
-                            {extraCount > 0 && (
-                              <span className="text-[11px] text-slate-400 pl-5">
-                                + {extraCount} autre(s) ligne(s)
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200/70 dark:border-teal-800/70 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-xs shrink-0">
+                                F{cmd.fournisseurId}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900 dark:text-white text-xs sm:text-sm">
+                                  {getFournisseurLabel(cmd.fournisseurId)}
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  ID Référentiel : #{cmd.fournisseurId}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="inline-flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              {formatDate(cmd.dateCommande)}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-col gap-1">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                <Package className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                <span className="truncate max-w-[200px]">
+                                  {firstArticle || 'Aucun article'}
+                                </span>
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="font-extrabold text-sm text-teal-700 dark:text-teal-400">
-                            {formatMontant(cmd.montantTotal)}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            {getStatutBadge(cmd.statut)}
-                            <select
-                              value={cmd.statut}
-                              onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
-                              className="text-xs font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-                            >
-                              <option value="EN_ATTENTE">EN_ATTENTE</option>
-                              <option value="VALIDEE">VALIDEE</option>
-                              <option value="EN_COURS">EN_COURS</option>
-                              <option value="LIVREE">LIVREE</option>
-                              <option value="ANNULEE">ANNULEE</option>
-                            </select>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center justify-end gap-1.5">
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              icon={<Eye className="w-3.5 h-3.5" />}
-                              onClick={() => setSelectedCommande(cmd)}
-                            >
-                              Détails
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="xs"
-                              icon={<Trash2 className="w-3.5 h-3.5" />}
-                              onClick={() => handleDelete(cmd.id)}
-                            >
-                              Supprimer
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              {extraCount > 0 && (
+                                <span className="text-[11px] text-slate-400 pl-5">
+                                  + {extraCount} autre(s) ligne(s)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-extrabold text-sm text-teal-700 dark:text-teal-400">
+                              {formatMontant(cmd.montantTotal)}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              {getStatutBadge(cmd.statut)}
+                              <select
+                                value={cmd.statut}
+                                onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                                className="text-xs font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                              >
+                                <option value="EN_ATTENTE">EN_ATTENTE</option>
+                                <option value="VALIDEE">VALIDEE</option>
+                                <option value="EN_COURS">EN_COURS</option>
+                                <option value="LIVREE">LIVREE</option>
+                                <option value="ANNULEE">ANNULEE</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                icon={<Eye className="w-3.5 h-3.5" />}
+                                onClick={() => setSelectedCommande(cmd)}
+                              >
+                                Détails
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="xs"
+                                icon={<Trash2 className="w-3.5 h-3.5" />}
+                                onClick={() => handleDelete(cmd.id)}
+                              >
+                                Supprimer
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Barre de Pagination */}
+              <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 gap-3">
+                <div>
+                  Affichage de{'5'} éléments par page (Page {currentPage} sur {totalPages})
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    icon={<ChevronLeft className="w-4 h-4" />}
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  >
+                    Précédent
+                  </Button>
+                  <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 font-bold rounded-lg text-slate-700 dark:text-slate-200">
+                    {currentPage} / {totalPages}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    icon={<ChevronRight className="w-4 h-4" />}
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Modal Détails Enrichie (Format Bon de Commande Officiel) */}
+      {/* Conteneur Graphiques Statistiques (Charts) en bas de tableau */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+        {/* Graphique 1 : Répartition des Statuts */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PieChart className="w-4 h-4 text-teal-600" />
+                Répartition par Statut des Commandes
+              </CardTitle>
+              <span className="text-xs text-slate-400">En temps réel</span>
+            </div>
+            <CardDescription>Visualisation de l'état d'avancement du portefeuille</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {[
+              { label: 'En Attente', count: chartStats.counts.EN_ATTENTE, color: 'bg-amber-500', text: 'text-amber-600' },
+              { label: 'Validées', count: chartStats.counts.VALIDEE, color: 'bg-emerald-500', text: 'text-emerald-600' },
+              { label: 'En Cours', count: chartStats.counts.EN_COURS, color: 'bg-blue-500', text: 'text-blue-600' },
+              { label: 'Livrées', count: chartStats.counts.LIVREE, color: 'bg-teal-600', text: 'text-teal-600' },
+              { label: 'Annulées', count: chartStats.counts.ANNULEE, color: 'bg-rose-500', text: 'text-rose-600' },
+            ].map((item) => {
+              const totalCount = commandes.length || 1;
+              const pct = Math.round((item.count / totalCount) * 100);
+              return (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
+                    <span className={item.text}>
+                      {item.count} commande(s) ({pct}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${item.color}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Graphique 2 : Top 3 Fournisseurs Engagés */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="w-4 h-4 text-teal-600" />
+                Top Fournisseurs par Volume Financier
+              </CardTitle>
+              <span className="text-xs text-slate-400">En MAD</span>
+            </div>
+            <CardDescription>Classement des principaux partenaires fournisseurs</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {chartStats.topFournisseurs.length === 0 ? (
+              <div className="py-8 text-center text-sm text-slate-400">
+                Aucune donnée financière disponible
+              </div>
+            ) : (
+              chartStats.topFournisseurs.map((f, idx) => (
+                <div key={f.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-extrabold text-xs flex items-center justify-center">
+                      #{idx + 1}
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm text-slate-900 dark:text-white">
+                        {f.nom}
+                      </div>
+                      <div className="text-xs text-slate-400">ID Fournisseur : #{f.id}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-extrabold text-sm text-teal-700 dark:text-teal-400">
+                      {formatMontant(f.montant)}
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-600">Engagé</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Modal Détails (Bouton Print supprimé) */}
       <Modal
         isOpen={!!selectedCommande}
         onClose={() => setSelectedCommande(null)}
@@ -682,15 +848,7 @@ export const CommandesPage: React.FC = () => {
         }`}
         maxWidth="3xl"
         footer={
-          <div className="w-full flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Printer className="w-4 h-4" />}
-              onClick={() => window.print()}
-            >
-              Imprimer / PDF
-            </Button>
+          <div className="w-full flex justify-end">
             <Button variant="primary" size="sm" onClick={() => setSelectedCommande(null)}>
               Fermer
             </Button>
@@ -699,7 +857,6 @@ export const CommandesPage: React.FC = () => {
       >
         {selectedCommande && (
           <div className="space-y-6">
-            {/* Barre de progression du cycle de vie */}
             {selectedCommande.statut !== 'ANNULEE' ? (
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
@@ -739,11 +896,10 @@ export const CommandesPage: React.FC = () => {
               </div>
             ) : (
               <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-                Ce bon de commande a été annulé et n'est plus comptabilisé dans les engagements.
+                Ce bon de commande a été annulé.
               </div>
             )}
 
-            {/* Cartes Métadonnées */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
@@ -773,7 +929,6 @@ export const CommandesPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Tableau détaillé des lignes d'achat */}
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
@@ -788,9 +943,7 @@ export const CommandesPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {selectedCommande.lignesCommande?.map((ligne, idx) => (
                     <tr key={ligne.id || idx}>
-                      <td className="py-3 px-4 text-xs text-slate-400 font-mono">
-                        {idx + 1}
-                      </td>
+                      <td className="py-3 px-4 text-xs text-slate-400 font-mono">{idx + 1}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
                         {ligne.designation}
                       </td>
@@ -827,7 +980,7 @@ export const CommandesPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Création avec Sélecteur Interactif de Fournisseurs */}
+      {/* Modal Création */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -886,7 +1039,7 @@ export const CommandesPage: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
               <Building2 className="w-3 h-3 text-teal-600" />
-              Connecté au référentiel Fournisseurs (:8081). Les fournisseurs inactifs sont filtrés.
+              Connecté au référentiel Fournisseurs (:8081).
             </p>
           </div>
 
