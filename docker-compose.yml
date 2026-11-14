@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   reseau-achats:
     driver: bridge
@@ -23,62 +21,16 @@ services:
     networks:
       - reseau-achats
 
-  service-fournisseurs:
-    build: ./service-fournisseurs-mohamed
-    container_name: service-fournisseurs
-    ports:
-      - "8081:8081"
-    environment:
-      - SERVER_PORT=${SERVER_PORT:-8081}
-      - DATABASE_URL=${DATABASE_URL:-jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_fournisseurs}
-      - DATABASE_USERNAME=${DATABASE_USERNAME:-admin_achats}
-      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-pass_secure}
-      - DATABASE_SCHEMA=schema_fournisseurs
-      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-validate}
-      - COMMANDES_SERVICE_URL=${COMMANDES_SERVICE_URL:-http://service-commandes:8082}
-    depends_on:
-      - postgres-db
-    networks:
-      - reseau-achats
-
   service-commandes:
-    build: ./service-commandes-yassine
+    build: ./service-commandes-yassine/service-commandes
     container_name: service-commandes
     ports:
       - "8082:8082"
     environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_commandes
-      - FOURNISSEURS_URL=http://service-fournisseurs:8081
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_commandes
+      - SPRING_DATASOURCE_USERNAME=admin_achats
+      - SPRING_DATASOURCE_PASSWORD=pass_secure
     depends_on:
       - postgres-db
-      - service-fournisseurs
-    networks:
-      - reseau-achats
-
-  service-receptions:
-    build: ./service-receptions-ali
-    container_name: service-receptions
-    ports:
-      - "8083:8083"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_receptions
-      - COMMANDES_URL=http://service-commandes:8082
-    depends_on:
-      - postgres-db
-      - service-commandes
-    networks:
-      - reseau-achats
-
-  service-factures:
-    build: ./service-factures-hamza
-    container_name: service-factures
-    ports:
-      - "8084:8084"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_factures
-      - COMMANDES_URL=http://service-commandes:8082
-    depends_on:
-      - postgres-db
-      - service-commandes
     networks:
       - reseau-achats
