@@ -65,3 +65,12 @@ export async function deleteCommande(id: number): Promise<void> {
   });
   if (!res.ok) throw new Error(`Erreur suppression (${res.status})`);
 }
+export const updateCommande = async (id: number, commande: Partial<Commande>): Promise<Commande> => {
+  const response = await fetch(`/api/commandes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(commande),
+  });
+  if (!response.ok) throw new Error('Erreur lors de la modification de la commande');
+  return response.json();
+};

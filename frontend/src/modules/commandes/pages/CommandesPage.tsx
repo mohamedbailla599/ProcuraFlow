@@ -33,11 +33,13 @@ import {
   PieChart,
   ChevronLeft,
   ChevronRight,
+  Edit,
 } from 'lucide-react';
 import {
   getAllCommandes,
   getCommandesByFournisseur,
   createCommande,
+  updateCommande,
   updateCommandeStatut,
   deleteCommande,
 } from '../api';
@@ -65,11 +67,12 @@ export const CommandesPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Modals
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // Modals & Mode Édition
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedCommande, setSelectedCommande] = useState<Commande | null>(null);
 
-  // Formulaire nouvelle commande
+  // Formulaire nouvelle / modification commande
   const [fournisseurId, setFournisseurId] = useState<number>(1);
   const [lignes, setLignes] = useState<Omit<LigneCommande, 'id'>[]>([
     { designation: '', quantite: 1, prixUnitaire: 0 },
@@ -109,10 +112,10 @@ export const CommandesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isCreateOpen && fournisseursList.length === 0) {
+    if (isModalOpen && fournisseursList.length === 0) {
       loadFournisseurs();
     }
-  }, [isCreateOpen]);
+  }, [isModalOpen]);
 
   // Réinitialiser la page courante lorsqu'on filtre ou recherche
   useEffect(() => {
@@ -181,7 +184,6 @@ export const CommandesPage: React.FC = () => {
 
   // Statistiques pour les Charts (en bas de tableau)
   const chartStats = useMemo(() => {
-    const total = commandes.length || 1;
     const counts = {
       EN_ATTENTE: commandes.filter((c) => c.statut === 'EN_ATTENTE').length,
       VALIDEE: commandes.filter((c) => c.statut === 'VALIDEE').length,
@@ -210,6 +212,26 @@ export const CommandesPage: React.FC = () => {
     return { counts, topFournisseurs };
   }, [commandes, fournisseursList]);
 
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setFournisseurId(1);
+    setLignes([{ designation: '', quantite: 1, prixUnitaire: 0 }]);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (cmd: Commande) => {
+    setEditingId(cmd.id);
+    setFournisseurId(cmd.fournisseurId);
+    setLignes(
+      cmd.lignesCommande?.map((l) => ({
+        designation: l.designation,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+      })) || [{ designation: '', quantite: 1, prixUnitaire: 0 }]
+    );
+    setIsModalOpen(true);
+  };
+
   const handleAddLigne = () => {
     setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 0 }]);
   };
@@ -230,16 +252,23 @@ export const CommandesPage: React.FC = () => {
     setLignes(updated);
   };
 
-  const handleCreateSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await createCommande({
-        fournisseurId: Number(fournisseurId),
-        statut: 'EN_ATTENTE',
-        lignesCommande: lignes,
-      });
-      setIsCreateOpen(false);
+      if (editingId) {
+        await updateCommande(editingId, {
+          fournisseurId: Number(fournisseurId),
+          lignesCommande: lignes,
+        });
+      } else {
+        await createCommande({
+          fournisseurId: Number(fournisseurId),
+          statut: 'EN_ATTENTE',
+          lignesCommande: lignes,
+        });
+      }
+      setIsModalOpen(false);
       setLignes([{ designation: '', quantite: 1, prixUnitaire: 0 }]);
       loadCommandes();
     } catch (err: any) {
@@ -341,7 +370,7 @@ export const CommandesPage: React.FC = () => {
               variant="primary"
               size="md"
               icon={<Plus className="w-4 h-4" />}
-              onClick={() => setIsCreateOpen(true)}
+              onClick={handleOpenCreate}
             >
               Nouvelle Commande
             </Button>
@@ -596,7 +625,7 @@ export const CommandesPage: React.FC = () => {
                     Effacer les filtres
                   </Button>
                 ) : (
-                  <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+                  <Button variant="primary" size="md" onClick={handleOpenCreate}>
                     Nouvelle Commande
                   </Button>
                 )
@@ -698,6 +727,14 @@ export const CommandesPage: React.FC = () => {
                                 onClick={() => setSelectedCommande(cmd)}
                               >
                                 Détails
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="xs"
+                                icon={<Edit className="w-3.5 h-3.5" />}
+                                onClick={() => handleOpenEdit(cmd)}
+                              >
+                                Modifier
                               </Button>
                               <Button
                                 variant="danger"
@@ -838,7 +875,7 @@ export const CommandesPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Modal Détails (Bouton Print supprimé) */}
+      {/* Modal Détails */}
       <Modal
         isOpen={!!selectedCommande}
         onClose={() => setSelectedCommande(null)}
@@ -980,25 +1017,25 @@ export const CommandesPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Création */}
+      {/* Modal Création / Édition */}
       <Modal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        title="Nouvelle Commande"
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingId ? `Modifier la Commande #${editingId}` : "Nouvelle Commande"}
         description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
         maxWidth="3xl"
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Annuler
             </Button>
-            <Button variant="primary" loading={submitting} onClick={handleCreateSubmit}>
-              Enregistrer la commande
+            <Button variant="primary" loading={submitting} onClick={handleSubmit}>
+              {editingId ? "Mettre à jour" : "Enregistrer la commande"}
             </Button>
           </>
         }
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Fournisseur concerné
