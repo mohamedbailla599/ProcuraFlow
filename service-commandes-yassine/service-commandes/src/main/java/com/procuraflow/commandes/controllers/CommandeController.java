@@ -53,4 +53,11 @@ public class CommandeController {
         List<Commande> commandes = commandeService.getCommandesByFournisseur(fournisseurId);
         return ResponseEntity.ok(commandes);
     }
+    @PutMapping("/{id}")
+    public ResponseEntity<Commande> modifierCommande(
+            @PathVariable Long id,
+            @RequestBody Commande commandeDetails) {
+        Commande commandeMaj = commandeService.modifierCommande(id, commandeDetails);
+        return ResponseEntity.ok(commandeMaj);
+    }
 }
