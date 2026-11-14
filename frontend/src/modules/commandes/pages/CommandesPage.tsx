@@ -26,6 +26,7 @@ import {
   Clock,
   ArrowUpDown,
   X,
+  Building2,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -44,6 +45,9 @@ export const CommandesPage: React.FC = () => {
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Liste des fournisseurs pour le sélecteur interactif
+  const [fournisseursList, setFournisseursList] = useState<any[]>([]);
 
   // Filtres & Tri
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -77,9 +81,25 @@ export const CommandesPage: React.FC = () => {
     }
   };
 
+  // Chargement des fournisseurs pour le sélecteur interactif
   useEffect(() => {
     loadCommandes();
   }, []);
+
+  useEffect(() => {
+    if (isCreateOpen) {
+      fetch('/api/fournisseurs?includeInactive=false')
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data) => {
+          const list = data.content || data;
+          setFournisseursList(Array.isArray(list) ? list : []);
+        })
+        .catch(() => {
+          // Fallback si le microservice fournisseurs (:8081) est éteint
+          setFournisseursList([]);
+        });
+    }
+  }, [isCreateOpen]);
 
   // Calcul des KPI en temps réel
   const kpiStats = useMemo(() => {
@@ -95,7 +115,7 @@ export const CommandesPage: React.FC = () => {
     return { total, enAttente, valideesOuLivrees, montantEngage };
   }, [commandes]);
 
-  // Filtrage et tri côté client pour une réactivité instantanée
+  // Filtrage et tri côté client
   const filteredCommandes = useMemo(() => {
     return commandes
       .filter((cmd) => {
@@ -363,7 +383,6 @@ export const CommandesPage: React.FC = () => {
       <Card>
         <CardContent className="pt-4 space-y-4">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-            {/* Recherche instantanée */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -384,7 +403,6 @@ export const CommandesPage: React.FC = () => {
               )}
             </div>
 
-            {/* Filtre API serveur par ID Fournisseur + Tri */}
             <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
               <div className="flex items-center gap-1.5">
                 <input
@@ -422,7 +440,6 @@ export const CommandesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Onglets segmentés de statut */}
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
             {(
               [
@@ -552,7 +569,7 @@ export const CommandesPage: React.FC = () => {
                           <select
                             value={cmd.statut}
                             onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
-                            className="text-xs border rounded-lg px-2 py-1 bg-transparent border-slate-200 dark:border-slate-700"
+                            className="text-xs border rounded-lg px-2 py-1 bg-transparent border-slate-200 dark:border-slate-700 cursor-pointer"
                           >
                             <option value="EN_ATTENTE">EN_ATTENTE</option>
                             <option value="VALIDEE">VALIDEE</option>
@@ -632,12 +649,12 @@ export const CommandesPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Création */}
+      {/* Modal Création avec Sélecteur Interactif de Fournisseurs */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Nouvelle Commande"
-        description="Renseignez l'identifiant du fournisseur et configurez les lignes d'achat."
+        description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
         maxWidth="3xl"
         footer={
           <>
@@ -651,21 +668,44 @@ export const CommandesPage: React.FC = () => {
         }
       >
         <form onSubmit={handleCreateSubmit} className="space-y-6">
-          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              Identifiant du Fournisseur
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Fournisseur concerné
             </label>
-            <div className="relative">
-              <input
-                type="number"
-                required
-                min={1}
-                placeholder="Ex: 5"
-                value={fournisseurId}
-                onChange={(e) => setFournisseurId(Number(e.target.value))}
-                className="w-full sm:w-1/2 px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <div className="sm:col-span-8">
+                <select
+                  value={fournisseurId}
+                  onChange={(e) => setFournisseurId(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                >
+                  {fournisseursList.length === 0 ? (
+                    <option value={fournisseurId}>Fournisseur #{fournisseurId} (Saisie manuelle)</option>
+                  ) : (
+                    fournisseursList.map((f: any) => (
+                      <option key={f.id} value={f.id}>
+                        #{f.id} — {f.nom} {f.ville ? `(${f.ville})` : ''}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="sm:col-span-4 flex items-center gap-2">
+                <span className="text-xs text-slate-400">ID direct :</span>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={fournisseurId}
+                  onChange={(e) => setFournisseurId(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-center"
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-teal-600" />
+              Connecté au référentiel Fournisseurs (:8081). Les fournisseurs inactifs sont filtrés.
+            </p>
           </div>
 
           <div className="space-y-3">
