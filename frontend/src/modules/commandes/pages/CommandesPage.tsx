@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PageHeader,
   Badge,
@@ -13,7 +13,20 @@ import {
   EmptyState,
   ErrorState,
 } from '../../../components/ui';
-import { Plus, Trash2, Eye, Search, RefreshCw, Package } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Search,
+  RefreshCw,
+  Package,
+  ShoppingBag,
+  Wallet,
+  CheckCircle2,
+  Clock,
+  ArrowUpDown,
+  X,
+} from 'lucide-react';
 import {
   getAllCommandes,
   getCommandesByFournisseur,
@@ -24,11 +37,19 @@ import {
 import { Commande, LigneCommande } from '../types';
 import { formatMontant, formatDate } from '../utils';
 
+type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE';
+type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
+
 export const CommandesPage: React.FC = () => {
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filtres & Tri
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [fournisseurFilter, setFournisseurFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -60,6 +81,53 @@ export const CommandesPage: React.FC = () => {
     loadCommandes();
   }, []);
 
+  // Calcul des KPI en temps réel
+  const kpiStats = useMemo(() => {
+    const total = commandes.length;
+    const enAttente = commandes.filter((c) => c.statut === 'EN_ATTENTE').length;
+    const valideesOuLivrees = commandes.filter(
+      (c) => c.statut === 'VALIDEE' || c.statut === 'LIVREE' || c.statut === 'EN_COURS'
+    ).length;
+    const montantEngage = commandes
+      .filter((c) => c.statut !== 'ANNULEE')
+      .reduce((sum, c) => sum + (c.montantTotal || 0), 0);
+
+    return { total, enAttente, valideesOuLivrees, montantEngage };
+  }, [commandes]);
+
+  // Filtrage et tri côté client pour une réactivité instantanée
+  const filteredCommandes = useMemo(() => {
+    return commandes
+      .filter((cmd) => {
+        if (statusFilter !== 'ALL' && cmd.statut !== statusFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchId = `#${cmd.id}`.includes(q) || String(cmd.id).includes(q);
+          const matchFournisseur =
+            `fournisseur #${cmd.fournisseurId}`.includes(q) ||
+            String(cmd.fournisseurId).includes(q);
+          const matchArticle = cmd.lignesCommande?.some((l) =>
+            l.designation.toLowerCase().includes(q)
+          );
+          if (!matchId && !matchFournisseur && !matchArticle) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'montant-desc':
+            return (b.montantTotal || 0) - (a.montantTotal || 0);
+          case 'montant-asc':
+            return (a.montantTotal || 0) - (b.montantTotal || 0);
+          case 'date-asc':
+            return new Date(a.dateCommande).getTime() - new Date(b.dateCommande).getTime();
+          case 'date-desc':
+          default:
+            return new Date(b.dateCommande).getTime() - new Date(a.dateCommande).getTime();
+        }
+      });
+  }, [commandes, statusFilter, searchQuery, sortBy]);
+
   const handleAddLigne = () => {
     setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 0 }]);
   };
@@ -70,7 +138,11 @@ export const CommandesPage: React.FC = () => {
     }
   };
 
-  const handleLigneChange = (index: number, field: keyof Omit<LigneCommande, 'id'>, value: string | number) => {
+  const handleLigneChange = (
+    index: number,
+    field: keyof Omit<LigneCommande, 'id'>,
+    value: string | number
+  ) => {
     const updated = [...lignes];
     updated[index] = { ...updated[index], [field]: value };
     setLignes(updated);
@@ -114,67 +186,299 @@ export const CommandesPage: React.FC = () => {
     }
   };
 
+  const resetAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setSortBy('date-desc');
+    if (fournisseurFilter) {
+      setFournisseurFilter('');
+      setTimeout(loadCommandes, 0);
+    }
+  };
+
   const getStatutBadge = (statut: string) => {
     switch (statut) {
       case 'VALIDEE':
       case 'LIVREE':
-        return <Badge variant="success" dot size="sm">{statut}</Badge>;
+        return (
+          <Badge variant="success" dot size="sm">
+            {statut}
+          </Badge>
+        );
       case 'ANNULEE':
-        return <Badge variant="danger" dot size="sm">{statut}</Badge>;
+        return (
+          <Badge variant="danger" dot size="sm">
+            {statut}
+          </Badge>
+        );
       case 'EN_COURS':
-        return <Badge variant="info" dot size="sm">{statut}</Badge>;
+        return (
+          <Badge variant="info" dot size="sm">
+            {statut}
+          </Badge>
+        );
       default:
-        return <Badge variant="warning" dot size="sm">{statut}</Badge>;
+        return (
+          <Badge variant="warning" dot size="sm">
+            {statut}
+          </Badge>
+        );
     }
   };
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || statusFilter !== 'ALL' || fournisseurFilter.trim() !== '';
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
       <PageHeader
-        badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
+        badge={
+          <Badge variant="teal" dot size="sm">
+            Service Commandes (:8082)
+          </Badge>
+        }
         title="Gestion des Commandes"
         description="Créez, suivez et gérez les bons de commande et leurs lignes d'achat."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="md" icon={<RefreshCw className="w-4 h-4" />} onClick={loadCommandes}>
+            <Button
+              variant="outline"
+              size="md"
+              icon={<RefreshCw className="w-4 h-4" />}
+              onClick={loadCommandes}
+            >
               Actualiser
             </Button>
-            <Button variant="primary" size="md" icon={<Plus className="w-4 h-4" />} onClick={() => setIsCreateOpen(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={() => setIsCreateOpen(true)}
+            >
               Nouvelle Commande
             </Button>
           </div>
         }
       />
 
-      {/* Recherche par fournisseur */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="number"
-                placeholder="Filtrer par ID Fournisseur (ex: 5)..."
-                value={fournisseurFilter}
-                onChange={(e) => setFournisseurFilter(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+      {/* Bandeau KPI Statistiques */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ALL')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'ALL'
+              ? 'border-teal-500 ring-2 ring-teal-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Total Commandes
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/70 dark:border-teal-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400">
+              <ShoppingBag className="w-4 h-4" />
             </div>
-            <Button variant="secondary" size="md" onClick={loadCommandes}>
-              Filtrer
-            </Button>
-            {fournisseurFilter && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => {
-                  setFournisseurFilter('');
-                  setTimeout(loadCommandes, 0);
-                }}
-              >
-                Réinitialiser
-              </Button>
-            )}
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {kpiStats.total}
+            </span>
+            <span className="text-xs font-medium text-teal-600 dark:text-teal-400">
+              Portefeuille global
+            </span>
+          </div>
+        </button>
+
+        <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Budget Engagé (Hors Annulées)
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/70 dark:border-emerald-800/70 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {formatMontant(kpiStats.montantEngage)}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('VALIDEE')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'VALIDEE'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Validées / En Exécution
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {kpiStats.valideesOuLivrees}
+            </span>
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              Bons actifs
+            </span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('EN_ATTENTE')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'EN_ATTENTE'
+              ? 'border-amber-500 ring-2 ring-amber-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              En Attente de Validation
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/70 dark:border-amber-800/70 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+              {kpiStats.enAttente}
+            </span>
+            <span className="text-xs font-medium text-slate-500">À traiter</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Barre d'outils & Filtres Pro */}
+      <Card>
+        <CardContent className="pt-4 space-y-4">
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+            {/* Recherche instantanée */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Rechercher par #ID commande, fournisseur ou désignation d'article..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Filtre API serveur par ID Fournisseur + Tri */}
+            <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="ID Fournisseur API..."
+                  value={fournisseurFilter}
+                  onChange={(e) => setFournisseurFilter(e.target.value)}
+                  className="w-44 px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <Button variant="secondary" size="md" onClick={loadCommandes}>
+                  Filtrer API
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="text-xs font-semibold bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="date-desc">Plus récentes</option>
+                  <option value="date-asc">Plus anciennes</option>
+                  <option value="montant-desc">Montant décroissant</option>
+                  <option value="montant-asc">Montant croissant</option>
+                </select>
+              </div>
+
+              {hasActiveFilters && (
+                <Button variant="ghost" size="md" onClick={resetAllFilters}>
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Onglets segmentés de statut */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {(
+              [
+                { id: 'ALL', label: 'Toutes', count: commandes.length },
+                {
+                  id: 'EN_ATTENTE',
+                  label: 'En attente',
+                  count: commandes.filter((c) => c.statut === 'EN_ATTENTE').length,
+                },
+                {
+                  id: 'VALIDEE',
+                  label: 'Validées',
+                  count: commandes.filter((c) => c.statut === 'VALIDEE').length,
+                },
+                {
+                  id: 'EN_COURS',
+                  label: 'En cours',
+                  count: commandes.filter((c) => c.statut === 'EN_COURS').length,
+                },
+                {
+                  id: 'LIVREE',
+                  label: 'Livrées',
+                  count: commandes.filter((c) => c.statut === 'LIVREE').length,
+                },
+                {
+                  id: 'ANNULEE',
+                  label: 'Annulées',
+                  count: commandes.filter((c) => c.statut === 'ANNULEE').length,
+                },
+              ] as { id: StatusFilter; label: string; count: number }[]
+            ).map((tab) => {
+              const active = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    active
+                      ? 'bg-teal-600 text-white shadow-2xs'
+                      : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      active
+                        ? 'bg-white/20 text-white'
+                        : 'bg-white dark:bg-slate-900 text-slate-500'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -182,7 +486,10 @@ export const CommandesPage: React.FC = () => {
       {/* Tableau des commandes */}
       <Card>
         <CardHeader>
-          <CardTitle>Bons de commande ({commandes.length})</CardTitle>
+          <CardTitle>
+            Bons de commande ({filteredCommandes.length}
+            {filteredCommandes.length !== commandes.length ? ` sur ${commandes.length}` : ''})
+          </CardTitle>
           <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
         </CardHeader>
         <CardContent>
@@ -190,14 +497,24 @@ export const CommandesPage: React.FC = () => {
             <LoadingState message="Chargement des commandes depuis :8082..." />
           ) : error ? (
             <ErrorState message={error} onRetry={loadCommandes} />
-          ) : commandes.length === 0 ? (
+          ) : filteredCommandes.length === 0 ? (
             <EmptyState
               title="Aucune commande trouvée"
-              description="Créez votre premier bon de commande pour commencer."
+              description={
+                hasActiveFilters
+                  ? 'Aucun bon de commande ne correspond à vos critères de filtrage.'
+                  : 'Créez votre premier bon de commande pour commencer.'
+              }
               action={
-                <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
-                  Nouvelle Commande
-                </Button>
+                hasActiveFilters ? (
+                  <Button variant="outline" size="md" onClick={resetAllFilters}>
+                    Effacer les filtres
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+                    Nouvelle Commande
+                  </Button>
+                )
               }
             />
           ) : (
@@ -215,7 +532,7 @@ export const CommandesPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                  {commandes.map((cmd) => (
+                  {filteredCommandes.map((cmd) => (
                     <tr key={cmd.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                       <td className="py-3 px-4 font-semibold">#{cmd.id}</td>
                       <td className="py-3 px-4">Fournisseur #{cmd.fournisseurId}</td>
@@ -277,7 +594,9 @@ export const CommandesPage: React.FC = () => {
         isOpen={!!selectedCommande}
         onClose={() => setSelectedCommande(null)}
         title={`Détails de la Commande #${selectedCommande?.id}`}
-        description={`Fournisseur #${selectedCommande?.fournisseurId} — Total : ${formatMontant(selectedCommande?.montantTotal || 0)}`}
+        description={`Fournisseur #${selectedCommande?.fournisseurId} — Total : ${formatMontant(
+          selectedCommande?.montantTotal || 0
+        )}`}
         maxWidth="2xl"
         footer={
           <Button variant="outline" onClick={() => setSelectedCommande(null)}>
@@ -313,7 +632,7 @@ export const CommandesPage: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Création (Redesigné & Pro) */}
+      {/* Modal Création */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -352,15 +671,24 @@ export const CommandesPage: React.FC = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Lignes de commande</h4>
-                <p className="text-xs text-slate-500">Ajoutez les articles composant ce bon de commande.</p>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Lignes de commande
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Ajoutez les articles composant ce bon de commande.
+                </p>
               </div>
-              <Button type="button" variant="teal-subtle" size="xs" icon={<Plus className="w-3.5 h-3.5" />} onClick={handleAddLigne}>
+              <Button
+                type="button"
+                variant="teal-subtle"
+                size="xs"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                onClick={handleAddLigne}
+              >
                 Ajouter une ligne
               </Button>
             </div>
 
-            {/* En-têtes de colonnes */}
             <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               <div className="col-span-5">Désignation de l'article</div>
               <div className="col-span-2 text-center">Quantité</div>
@@ -373,14 +701,19 @@ export const CommandesPage: React.FC = () => {
               {lignes.map((ligne, index) => {
                 const sousTotal = ligne.quantite * ligne.prixUnitaire;
                 return (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs">
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs"
+                  >
                     <div className="sm:col-span-5">
                       <input
                         type="text"
                         required
                         placeholder="Ex: PC Portable Gamer"
                         value={ligne.designation}
-                        onChange={(e) => handleLigneChange(index, 'designation', e.target.value)}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'designation', e.target.value)
+                        }
                         className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -391,7 +724,9 @@ export const CommandesPage: React.FC = () => {
                         min={1}
                         placeholder="Qté"
                         value={ligne.quantite}
-                        onChange={(e) => handleLigneChange(index, 'quantite', Number(e.target.value))}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'quantite', Number(e.target.value))
+                        }
                         className="w-full px-3 py-2 text-sm text-center border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -403,7 +738,9 @@ export const CommandesPage: React.FC = () => {
                         step="0.01"
                         placeholder="0.00"
                         value={ligne.prixUnitaire}
-                        onChange={(e) => handleLigneChange(index, 'prixUnitaire', Number(e.target.value))}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'prixUnitaire', Number(e.target.value))
+                        }
                         className="w-full px-3 py-2 text-sm text-right border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -427,13 +764,14 @@ export const CommandesPage: React.FC = () => {
               })}
             </div>
 
-            {/* Encadré du montant total estimé */}
             <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3 rounded-xl mt-4">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
                 Montant Total Estimé
               </span>
               <span className="text-base font-extrabold text-teal-700 dark:text-teal-400">
-                {lignes.reduce((acc, l) => acc + l.quantite * l.prixUnitaire, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'MAD' })}
+                {lignes
+                  .reduce((acc, l) => acc + l.quantite * l.prixUnitaire, 0)
+                  .toLocaleString('fr-FR', { style: 'currency', currency: 'MAD' })}
               </span>
             </div>
           </div>
