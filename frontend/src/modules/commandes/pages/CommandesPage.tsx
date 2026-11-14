@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -75,8 +76,9 @@ export const CommandesPage: React.FC = () => {
   // Formulaire nouvelle / modification commande
   const [fournisseurId, setFournisseurId] = useState<number>(1);
   const [lignes, setLignes] = useState<Omit<LigneCommande, 'id'>[]>([
-    { designation: '', quantite: 1, prixUnitaire: 0 },
+    { designation: '', quantite: 1, prixUnitaire: 1 },
   ]);
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const loadCommandes = async () => {
@@ -192,7 +194,6 @@ export const CommandesPage: React.FC = () => {
       ANNULEE: commandes.filter((c) => c.statut === 'ANNULEE').length,
     };
 
-    // Top Fournisseurs par montant
     const fournisseurMap: { [key: number]: number } = {};
     commandes.forEach((c) => {
       if (c.statut !== 'ANNULEE') {
@@ -214,30 +215,34 @@ export const CommandesPage: React.FC = () => {
 
   const handleOpenCreate = () => {
     setEditingId(null);
+    setFormError(null);
     setFournisseurId(1);
-    setLignes([{ designation: '', quantite: 1, prixUnitaire: 0 }]);
+    setLignes([{ designation: '', quantite: 1, prixUnitaire: 1 }]);
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (cmd: Commande) => {
     setEditingId(cmd.id);
+    setFormError(null);
     setFournisseurId(cmd.fournisseurId);
     setLignes(
       cmd.lignesCommande?.map((l) => ({
         designation: l.designation,
-        quantite: l.quantite,
-        prixUnitaire: l.prixUnitaire,
-      })) || [{ designation: '', quantite: 1, prixUnitaire: 0 }]
+        quantite: Math.max(1, Math.round(l.quantite)),
+        prixUnitaire: Math.max(1, Math.round(l.prixUnitaire)),
+      })) || [{ designation: '', quantite: 1, prixUnitaire: 1 }]
     );
     setIsModalOpen(true);
   };
 
   const handleAddLigne = () => {
-    setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 0 }]);
+    setFormError(null);
+    setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 1 }]);
   };
 
   const handleRemoveLigne = (index: number) => {
     if (lignes.length > 1) {
+      setFormError(null);
       setLignes(lignes.filter((_, i) => i !== index));
     }
   };
@@ -247,32 +252,67 @@ export const CommandesPage: React.FC = () => {
     field: keyof Omit<LigneCommande, 'id'>,
     value: string | number
   ) => {
+    setFormError(null);
     const updated = [...lignes];
-    updated[index] = { ...updated[index], [field]: value };
+
+    if (field === 'quantite' || field === 'prixUnitaire') {
+      const parsed = parseInt(String(value).replace(/[^0-9]/g, ''), 10);
+      updated[index] = {
+        ...updated[index],
+        [field]: isNaN(parsed) ? 0 : parsed,
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+
     setLignes(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    for (let i = 0; i < lignes.length; i++) {
+      const l = lignes[i];
+      if (!l.designation.trim()) {
+        setFormError(`Veuillez saisir la désignation de l'article à la ligne ${i + 1}.`);
+        return;
+      }
+      if (!Number.isInteger(l.quantite) || l.quantite < 1) {
+        setFormError(`La quantité de la ligne ${i + 1} doit être un entier supérieur ou égal à 1.`);
+        return;
+      }
+      if (!Number.isInteger(l.prixUnitaire) || l.prixUnitaire <= 0) {
+        setFormError(`Le prix unitaire de la ligne ${i + 1} doit être un entier strictement positif (> 0 MAD).`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
+      const cleanLignes = lignes.map((l) => ({
+        designation: l.designation.trim(),
+        quantite: Math.round(l.quantite),
+        prixUnitaire: Math.round(l.prixUnitaire),
+      }));
+
       if (editingId) {
         await updateCommande(editingId, {
           fournisseurId: Number(fournisseurId),
-          lignesCommande: lignes,
+          lignesCommande: cleanLignes,
         });
       } else {
         await createCommande({
           fournisseurId: Number(fournisseurId),
           statut: 'EN_ATTENTE',
-          lignesCommande: lignes,
+          lignesCommande: cleanLignes,
         });
       }
       setIsModalOpen(false);
-      setLignes([{ designation: '', quantite: 1, prixUnitaire: 0 }]);
+      setLignes([{ designation: '', quantite: 1, prixUnitaire: 1 }]);
       loadCommandes();
     } catch (err: any) {
-      alert(err.message);
+      setFormError(err.message || "Erreur lors de l'enregistrement.");
     } finally {
       setSubmitting(false);
     }
@@ -317,43 +357,28 @@ export const CommandesPage: React.FC = () => {
     switch (statut) {
       case 'VALIDEE':
       case 'LIVREE':
-        return (
-          <Badge variant="success" dot size="sm">
-            {statut}
-          </Badge>
-        );
+        return <Badge variant="success" dot size="sm">{statut}</Badge>;
       case 'ANNULEE':
-        return (
-          <Badge variant="danger" dot size="sm">
-            {statut}
-          </Badge>
-        );
+        return <Badge variant="danger" dot size="sm">{statut}</Badge>;
       case 'EN_COURS':
-        return (
-          <Badge variant="info" dot size="sm">
-            {statut}
-          </Badge>
-        );
+        return <Badge variant="info" dot size="sm">{statut}</Badge>;
       default:
-        return (
-          <Badge variant="warning" dot size="sm">
-            {statut}
-          </Badge>
-        );
+        return <Badge variant="warning" dot size="sm">{statut}</Badge>;
     }
   };
 
   const hasActiveFilters =
     searchQuery.trim() !== '' || statusFilter !== 'ALL' || fournisseurFilter.trim() !== '';
 
+  const totalFormMontant = lignes.reduce(
+    (acc, l) => acc + Math.round(l.quantite || 0) * Math.round(l.prixUnitaire || 0),
+    0
+  );
+
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
       <PageHeader
-        badge={
-          <Badge variant="teal" dot size="sm">
-            Service Commandes (:8082)
-          </Badge>
-        }
+        badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
         title="Gestion des Commandes"
         description="Créez, suivez et gérez les bons de commande et leurs lignes d'achat."
         actions={
@@ -378,41 +403,30 @@ export const CommandesPage: React.FC = () => {
         }
       />
 
-      {/* Bandeau KPI Statistiques */}
+      {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <button
           type="button"
           onClick={() => setStatusFilter('ALL')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'ALL'
-              ? 'border-teal-500 ring-2 ring-teal-500/20'
-              : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'ALL' ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Total Commandes
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/70 dark:border-teal-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Commandes</span>
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 flex items-center justify-center text-teal-600">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {kpiStats.total}
-            </span>
-            <span className="text-xs font-medium text-teal-600 dark:text-teal-400">
-              Portefeuille global
-            </span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.total}</span>
           </div>
         </button>
 
         <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Budget Engagé (Hors Annulées)
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/70 dark:border-emerald-800/70 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Budget Engagé</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
@@ -427,26 +441,17 @@ export const CommandesPage: React.FC = () => {
           type="button"
           onClick={() => setStatusFilter('VALIDEE')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'VALIDEE'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-              : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'VALIDEE' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Validées / En Exécution
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/70 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Validées / Exécution</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              {kpiStats.valideesOuLivrees}
-            </span>
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-              Bons actifs
-            </span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.valideesOuLivrees}</span>
           </div>
         </button>
 
@@ -454,29 +459,22 @@ export const CommandesPage: React.FC = () => {
           type="button"
           onClick={() => setStatusFilter('EN_ATTENTE')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'EN_ATTENTE'
-              ? 'border-amber-500 ring-2 ring-amber-500/20'
-              : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'EN_ATTENTE' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              En Attente de Validation
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200/70 dark:border-amber-800/70 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">En Attente</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
-              {kpiStats.enAttente}
-            </span>
-            <span className="text-xs font-medium text-slate-500">À traiter</span>
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{kpiStats.enAttente}</span>
           </div>
         </button>
       </div>
 
-      {/* Barre d'outils & Filtres Pro */}
+      {/* Barre d'outils & Filtres */}
       <Card>
         <CardContent className="pt-4 space-y-4">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
@@ -484,16 +482,16 @@ export const CommandesPage: React.FC = () => {
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Rechercher par #ID commande, nom/ID fournisseur ou désignation d'article..."
+                placeholder="Rechercher par #ID commande, fournisseur ou article..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -501,34 +499,27 @@ export const CommandesPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="ID Fournisseur API..."
-                  value={fournisseurFilter}
-                  onChange={(e) => setFournisseurFilter(e.target.value)}
-                  className="w-44 px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <Button variant="secondary" size="md" onClick={loadCommandes}>
-                  Filtrer API
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700">
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="text-xs font-semibold bg-transparent text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="date-desc">Plus récentes</option>
-                  <option value="date-asc">Plus anciennes</option>
-                  <option value="montant-desc">Montant décroissant</option>
-                  <option value="montant-asc">Montant croissant</option>
-                </select>
-              </div>
-
+              <input
+                type="number"
+                min={1}
+                placeholder="ID Fournisseur API..."
+                value={fournisseurFilter}
+                onChange={(e) => setFournisseurFilter(e.target.value)}
+                className="w-44 px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <Button variant="secondary" size="md" onClick={loadCommandes}>
+                Filtrer API
+              </Button>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700"
+              >
+                <option value="date-desc">Plus récentes</option>
+                <option value="date-asc">Plus anciennes</option>
+                <option value="montant-desc">Montant décroissant</option>
+                <option value="montant-asc">Montant croissant</option>
+              </select>
               {hasActiveFilters && (
                 <Button variant="ghost" size="md" onClick={resetAllFilters}>
                   Réinitialiser
@@ -536,248 +527,86 @@ export const CommandesPage: React.FC = () => {
               )}
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-            {(
-              [
-                { id: 'ALL', label: 'Toutes', count: commandes.length },
-                {
-                  id: 'EN_ATTENTE',
-                  label: 'En attente',
-                  count: commandes.filter((c) => c.statut === 'EN_ATTENTE').length,
-                },
-                {
-                  id: 'VALIDEE',
-                  label: 'Validées',
-                  count: commandes.filter((c) => c.statut === 'VALIDEE').length,
-                },
-                {
-                  id: 'EN_COURS',
-                  label: 'En cours',
-                  count: commandes.filter((c) => c.statut === 'EN_COURS').length,
-                },
-                {
-                  id: 'LIVREE',
-                  label: 'Livrées',
-                  count: commandes.filter((c) => c.statut === 'LIVREE').length,
-                },
-                {
-                  id: 'ANNULEE',
-                  label: 'Annulées',
-                  count: commandes.filter((c) => c.statut === 'ANNULEE').length,
-                },
-              ] as { id: StatusFilter; label: string; count: number }[]
-            ).map((tab) => {
-              const active = statusFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.id)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    active
-                      ? 'bg-teal-600 text-white shadow-2xs'
-                      : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                      active
-                        ? 'bg-white/20 text-white'
-                        : 'bg-white dark:bg-slate-900 text-slate-500'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </CardContent>
       </Card>
 
-      {/* Tableau Professionnel des commandes avec Pagination intégrée */}
+      {/* Tableau des commandes */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Bons de commande ({filteredCommandes.length}
-            {filteredCommandes.length !== commandes.length ? ` sur ${commandes.length}` : ''})
-          </CardTitle>
+          <CardTitle>Bons de commande ({filteredCommandes.length})</CardTitle>
           <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
-            <LoadingState message="Chargement des commandes depuis :8082..." />
+            <LoadingState message="Chargement des commandes..." />
           ) : error ? (
             <ErrorState message={error} onRetry={loadCommandes} />
           ) : filteredCommandes.length === 0 ? (
-            <EmptyState
-              title="Aucune commande trouvée"
-              description={
-                hasActiveFilters
-                  ? 'Aucun bon de commande ne correspond à vos critères de filtrage.'
-                  : 'Créez votre premier bon de commande pour commencer.'
-              }
-              action={
-                hasActiveFilters ? (
-                  <Button variant="outline" size="md" onClick={resetAllFilters}>
-                    Effacer les filtres
-                  </Button>
-                ) : (
-                  <Button variant="primary" size="md" onClick={handleOpenCreate}>
-                    Nouvelle Commande
-                  </Button>
-                )
-              }
-            />
+            <EmptyState title="Aucune commande trouvée" />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-3.5 px-4 rounded-tl-lg">Réf. BC</th>
+                      <th className="py-3.5 px-4">Réf. BC</th>
                       <th className="py-3.5 px-4">Fournisseur</th>
                       <th className="py-3.5 px-4">Date Émission</th>
-                      <th className="py-3.5 px-4">Aperçu des Articles</th>
+                      <th className="py-3.5 px-4">Articles</th>
                       <th className="py-3.5 px-4">Montant Total</th>
-                      <th className="py-3.5 px-4">Statut & Workflow</th>
-                      <th className="py-3.5 px-4 text-right rounded-tr-lg">Actions</th>
+                      <th className="py-3.5 px-4">Statut</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                    {paginatedCommandes.map((cmd) => {
-                      const firstArticle = cmd.lignesCommande?.[0]?.designation;
-                      const extraCount = (cmd.lignesCommande?.length || 0) - 1;
-                      return (
-                        <tr
-                          key={cmd.id}
-                          className="group hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors"
-                        >
-                          <td className="py-3.5 px-4">
-                            <span className="inline-flex items-center gap-1 font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs">
-                              <Hash className="w-3 h-3 text-teal-600" />
-                              BC-{String(cmd.id).padStart(4, '0')}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200/70 dark:border-teal-800/70 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-xs shrink-0">
-                                F{cmd.fournisseurId}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-900 dark:text-white text-xs sm:text-sm">
-                                  {getFournisseurLabel(cmd.fournisseurId)}
-                                </div>
-                                <div className="text-[11px] text-slate-400">
-                                  ID Référentiel : #{cmd.fournisseurId}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-slate-400">
-                            <div className="inline-flex items-center gap-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              {formatDate(cmd.dateCommande)}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="flex flex-col gap-1">
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                <Package className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                                <span className="truncate max-w-[200px]">
-                                  {firstArticle || 'Aucun article'}
-                                </span>
-                              </span>
-                              {extraCount > 0 && (
-                                <span className="text-[11px] text-slate-400 pl-5">
-                                  + {extraCount} autre(s) ligne(s)
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <span className="font-extrabold text-sm text-teal-700 dark:text-teal-400">
-                              {formatMontant(cmd.montantTotal)}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <div className="flex items-center gap-2">
-                              {getStatutBadge(cmd.statut)}
-                              <select
-                                value={cmd.statut}
-                                onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
-                                className="text-xs font-medium border rounded-lg px-2 py-1 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-                              >
-                                <option value="EN_ATTENTE">EN_ATTENTE</option>
-                                <option value="VALIDEE">VALIDEE</option>
-                                <option value="EN_COURS">EN_COURS</option>
-                                <option value="LIVREE">LIVREE</option>
-                                <option value="ANNULEE">ANNULEE</option>
-                              </select>
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            <div className="inline-flex items-center justify-end gap-1.5">
-                              <Button
-                                variant="outline"
-                                size="xs"
-                                icon={<Eye className="w-3.5 h-3.5" />}
-                                onClick={() => setSelectedCommande(cmd)}
-                              >
-                                Détails
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="xs"
-                                icon={<Edit className="w-3.5 h-3.5" />}
-                                onClick={() => handleOpenEdit(cmd)}
-                              >
-                                Modifier
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="xs"
-                                icon={<Trash2 className="w-3.5 h-3.5" />}
-                                onClick={() => handleDelete(cmd.id)}
-                              >
-                                Supprimer
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {paginatedCommandes.map((cmd) => (
+                      <tr key={cmd.id} className="hover:bg-teal-50/30 dark:hover:bg-slate-800/50">
+                        <td className="py-3.5 px-4 font-bold">BC-{String(cmd.id).padStart(4, '0')}</td>
+                        <td className="py-3.5 px-4 font-semibold">{getFournisseurLabel(cmd.fournisseurId)}</td>
+                        <td className="py-3.5 px-4 text-xs text-slate-500">{formatDate(cmd.dateCommande)}</td>
+                        <td className="py-3.5 px-4">{cmd.lignesCommande?.length || 0} ligne(s)</td>
+                        <td className="py-3.5 px-4 font-extrabold text-teal-600">{formatMontant(cmd.montantTotal)}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            {getStatutBadge(cmd.statut)}
+                            <select
+                              value={cmd.statut}
+                              onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                              className="text-xs border rounded px-1.5 py-0.5 bg-transparent dark:border-slate-700"
+                            >
+                              <option value="EN_ATTENTE">EN_ATTENTE</option>
+                              <option value="VALIDEE">VALIDEE</option>
+                              <option value="EN_COURS">EN_COURS</option>
+                              <option value="LIVREE">LIVREE</option>
+                              <option value="ANNULEE">ANNULEE</option>
+                            </select>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-1.5">
+                          <Button variant="outline" size="xs" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => setSelectedCommande(cmd)}>
+                            Détails
+                          </Button>
+                          <Button variant="secondary" size="xs" icon={<Edit className="w-3.5 h-3.5" />} onClick={() => handleOpenEdit(cmd)}>
+                            Modifier
+                          </Button>
+                          <Button variant="danger" size="xs" icon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => handleDelete(cmd.id)}>
+                            Supprimer
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Barre de Pagination */}
-              <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 gap-3">
-                <div>
-                  Affichage de{'5'} éléments par page (Page {currentPage} sur {totalPages})
-                </div>
+              {/* Pagination */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                <span>Page {currentPage} sur {totalPages}</span>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    icon={<ChevronLeft className="w-4 h-4" />}
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  >
+                  <Button variant="outline" size="xs" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
                     Précédent
                   </Button>
-                  <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 font-bold rounded-lg text-slate-700 dark:text-slate-200">
-                    {currentPage} / {totalPages}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    icon={<ChevronRight className="w-4 h-4" />}
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  >
+                  <Button variant="outline" size="xs" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
                     Suivant
                   </Button>
                 </div>
@@ -787,93 +616,247 @@ export const CommandesPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Conteneur Graphiques Statistiques (Charts) en bas de tableau */}
+      {/* Graphiques Statistiques en bas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-        {/* Graphique 1 : Répartition des Statuts */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <PieChart className="w-4 h-4 text-teal-600" />
-                Répartition par Statut des Commandes
-              </CardTitle>
-              <span className="text-xs text-slate-400">En temps réel</span>
-            </div>
-            <CardDescription>Visualisation de l'état d'avancement du portefeuille</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PieChart className="w-4 h-4 text-teal-600" /> Répartition par Statut
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
+          <CardContent className="space-y-3">
             {[
-              { label: 'En Attente', count: chartStats.counts.EN_ATTENTE, color: 'bg-amber-500', text: 'text-amber-600' },
-              { label: 'Validées', count: chartStats.counts.VALIDEE, color: 'bg-emerald-500', text: 'text-emerald-600' },
-              { label: 'En Cours', count: chartStats.counts.EN_COURS, color: 'bg-blue-500', text: 'text-blue-600' },
-              { label: 'Livrées', count: chartStats.counts.LIVREE, color: 'bg-teal-600', text: 'text-teal-600' },
-              { label: 'Annulées', count: chartStats.counts.ANNULEE, color: 'bg-rose-500', text: 'text-rose-600' },
-            ].map((item) => {
-              const totalCount = commandes.length || 1;
-              const pct = Math.round((item.count / totalCount) * 100);
-              return (
-                <div key={item.label} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
-                    <span className={item.text}>
-                      {item.count} commande(s) ({pct}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${item.color}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+              { label: 'En Attente', count: chartStats.counts.EN_ATTENTE, color: 'bg-amber-500' },
+              { label: 'Validées', count: chartStats.counts.VALIDEE, color: 'bg-emerald-500' },
+              { label: 'En Cours', count: chartStats.counts.EN_COURS, color: 'bg-blue-500' },
+              { label: 'Livrées', count: chartStats.counts.LIVREE, color: 'bg-teal-600' },
+              { label: 'Annulées', count: chartStats.counts.ANNULEE, color: 'bg-rose-500' },
+            ].map((item) => (
+              <div key={item.label} className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>{item.label}</span>
+                  <span className="font-semibold">{item.count}</span>
                 </div>
-              );
-            })}
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className={`h-full ${item.color}`} style={{ width: `${(item.count / (commandes.length || 1)) * 100}%` }} />
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
-        {/* Graphique 2 : Top 3 Fournisseurs Engagés */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3 className="w-4 h-4 text-teal-600" />
-                Top Fournisseurs par Volume Financier
-              </CardTitle>
-              <span className="text-xs text-slate-400">En MAD</span>
-            </div>
-            <CardDescription>Classement des principaux partenaires fournisseurs</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="w-4 h-4 text-teal-600" /> Top Fournisseurs
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {chartStats.topFournisseurs.length === 0 ? (
-              <div className="py-8 text-center text-sm text-slate-400">
-                Aucune donnée financière disponible
+          <CardContent className="space-y-3">
+            {chartStats.topFournisseurs.map((f, idx) => (
+              <div key={f.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 flex justify-between items-center">
+                <span className="font-bold text-sm">#{idx + 1} {f.nom}</span>
+                <span className="font-extrabold text-teal-600">{formatMontant(f.montant)}</span>
               </div>
-            ) : (
-              chartStats.topFournisseurs.map((f, idx) => (
-                <div key={f.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-extrabold text-xs flex items-center justify-center">
-                      #{idx + 1}
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm text-slate-900 dark:text-white">
-                        {f.nom}
-                      </div>
-                      <div className="text-xs text-slate-400">ID Fournisseur : #{f.id}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-extrabold text-sm text-teal-700 dark:text-teal-400">
-                      {formatMontant(f.montant)}
-                    </div>
-                    <span className="text-[10px] uppercase font-bold text-emerald-600">Engagé</span>
-                  </div>
-                </div>
-              ))
-            )}
+            ))}
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal Création / Édition */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingId ? `Modifier la Commande #BC-${String(editingId).padStart(4, '0')}` : 'Nouvelle Commande'}
+        description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
+        maxWidth="3xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="primary" loading={submitting} onClick={handleSubmit}>
+              {editingId ? 'Mettre à jour la commande' : 'Enregistrer la commande'}
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 pt-3 mt-1 transition-all duration-300 ease-out"
+        >
+          {formError && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-pulse">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {/* Bloc Fournisseur */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3 transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-800">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Fournisseur concerné
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <div className="sm:col-span-8">
+                <select
+                  value={fournisseurId}
+                  onChange={(e) => setFournisseurId(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all cursor-pointer"
+                >
+                  {fournisseursList.length === 0 ? (
+                    <option value={fournisseurId}>
+                      Fournisseur #{fournisseurId} (Saisie manuelle)
+                    </option>
+                  ) : (
+                    fournisseursList
+                      .filter((f: any) => f.actif !== false)
+                      .map((f: any) => (
+                        <option key={f.id} value={f.id}>
+                          #{f.id} — {f.nom} {f.ville ? `(${f.ville})` : ''}
+                        </option>
+                      ))
+                  )}
+                </select>
+              </div>
+              <div className="sm:col-span-4 flex items-center gap-2">
+                <span className="text-xs text-slate-400 shrink-0">ID direct :</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={fournisseurId}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                    setFournisseurId(isNaN(val) || val < 1 ? 1 : val);
+                  }}
+                  className="w-full px-3 py-2 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-center focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-teal-600" />
+              Connecté au référentiel Fournisseurs (:8081).
+            </p>
+          </div>
+
+          {/* Bloc Lignes de commande */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Lignes de commande
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Ajoutez les articles composant ce bon de commande (prix entiers strictement positifs).
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="teal-subtle"
+                size="xs"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                onClick={handleAddLigne}
+              >
+                Ajouter une ligne
+              </Button>
+            </div>
+
+            <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="col-span-5">Désignation de l'article</div>
+              <div className="col-span-2 text-center">Quantité</div>
+              <div className="col-span-3 text-right">Prix Unitaire (MAD)</div>
+              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-1"></div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+              {lignes.map((ligne, index) => {
+                const isPriceInvalid = !ligne.prixUnitaire || ligne.prixUnitaire <= 0;
+                const sousTotal = Math.round(ligne.quantite || 0) * Math.round(ligne.prixUnitaire || 0);
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs transition-all duration-200 hover:shadow-sm hover:border-teal-300/80 dark:hover:border-teal-800"
+                  >
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: PC Portable Gamer"
+                        value={ligne.designation}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'designation', e.target.value)
+                        }
+                        className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        placeholder="1"
+                        value={ligne.quantite === 0 ? '' : ligne.quantite}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'quantite', e.target.value)
+                        }
+                        onBlur={() => {
+                          if (!ligne.quantite || ligne.quantite < 1) {
+                            handleLigneChange(index, 'quantite', 1);
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-sm text-center font-semibold border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        placeholder="Ex: 1500"
+                        value={ligne.prixUnitaire === 0 ? '' : ligne.prixUnitaire}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'prixUnitaire', e.target.value)
+                        }
+                        className={`w-full px-3 py-2 text-sm text-right font-semibold border rounded-lg bg-slate-50/50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                          isPriceInvalid
+                            ? 'border-rose-400 focus:ring-rose-500 text-rose-600'
+                            : 'border-slate-200 dark:border-slate-700 focus:ring-teal-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="sm:col-span-1 text-right text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                      {sousTotal.toLocaleString('fr-FR')} MAD
+                    </div>
+                    <div className="sm:col-span-1 text-right">
+                      {lignes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLigne(index)}
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-150"
+                          title="Supprimer la ligne"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Montant Total Estimé en entier strict */}
+            <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3.5 rounded-xl mt-4 transition-all duration-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
+                Montant Total Estimé
+              </span>
+              <span className="text-lg font-extrabold text-teal-700 dark:text-teal-400">
+                {totalFormMontant.toLocaleString('fr-FR')} MAD
+              </span>
+            </div>
+          </div>
+        </form>
+      </Modal>
 
       {/* Modal Détails */}
       <Modal
@@ -893,7 +876,7 @@ export const CommandesPage: React.FC = () => {
         }
       >
         {selectedCommande && (
-          <div className="space-y-6">
+          <div className="space-y-6 pt-2">
             {selectedCommande.statut !== 'ANNULEE' ? (
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
@@ -1015,179 +998,6 @@ export const CommandesPage: React.FC = () => {
             </div>
           </div>
         )}
-      </Modal>
-
-      {/* Modal Création / Édition */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingId ? `Modifier la Commande #${editingId}` : "Nouvelle Commande"}
-        description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
-        maxWidth="3xl"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Annuler
-            </Button>
-            <Button variant="primary" loading={submitting} onClick={handleSubmit}>
-              {editingId ? "Mettre à jour" : "Enregistrer la commande"}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Fournisseur concerné
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-              <div className="sm:col-span-8">
-                <select
-                  value={fournisseurId}
-                  onChange={(e) => setFournisseurId(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-                >
-                  {fournisseursList.length === 0 ? (
-                    <option value={fournisseurId}>
-                      Fournisseur #{fournisseurId} (Saisie manuelle)
-                    </option>
-                  ) : (
-                    fournisseursList
-                      .filter((f: any) => f.actif !== false)
-                      .map((f: any) => (
-                        <option key={f.id} value={f.id}>
-                          #{f.id} — {f.nom} {f.ville ? `(${f.ville})` : ''}
-                        </option>
-                      ))
-                  )}
-                </select>
-              </div>
-              <div className="sm:col-span-4 flex items-center gap-2">
-                <span className="text-xs text-slate-400 shrink-0">ID direct :</span>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  value={fournisseurId}
-                  onChange={(e) => setFournisseurId(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-center"
-                />
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-teal-600" />
-              Connecté au référentiel Fournisseurs (:8081).
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Lignes de commande
-                </h4>
-                <p className="text-xs text-slate-500">
-                  Ajoutez les articles composant ce bon de commande.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="teal-subtle"
-                size="xs"
-                icon={<Plus className="w-3.5 h-3.5" />}
-                onClick={handleAddLigne}
-              >
-                Ajouter une ligne
-              </Button>
-            </div>
-
-            <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              <div className="col-span-5">Désignation de l'article</div>
-              <div className="col-span-2 text-center">Quantité</div>
-              <div className="col-span-3 text-right">Prix Unitaire (MAD)</div>
-              <div className="col-span-1 text-right">Total</div>
-              <div className="col-span-1"></div>
-            </div>
-
-            <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-              {lignes.map((ligne, index) => {
-                const sousTotal = ligne.quantite * ligne.prixUnitaire;
-                return (
-                  <div
-                    key={index}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs"
-                  >
-                    <div className="sm:col-span-5">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ex: PC Portable Gamer"
-                        value={ligne.designation}
-                        onChange={(e) =>
-                          handleLigneChange(index, 'designation', e.target.value)
-                        }
-                        className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        placeholder="Qté"
-                        value={ligne.quantite}
-                        onChange={(e) =>
-                          handleLigneChange(index, 'quantite', Number(e.target.value))
-                        }
-                        className="w-full px-3 py-2 text-sm text-center border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <input
-                        type="number"
-                        required
-                        min={0}
-                        step="0.01"
-                        placeholder="0.00"
-                        value={ligne.prixUnitaire}
-                        onChange={(e) =>
-                          handleLigneChange(index, 'prixUnitaire', Number(e.target.value))
-                        }
-                        className="w-full px-3 py-2 text-sm text-right border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
-                    <div className="sm:col-span-1 text-right text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {sousTotal.toFixed(2)} MAD
-                    </div>
-                    <div className="sm:col-span-1 text-right">
-                      {lignes.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLigne(index)}
-                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                          title="Supprimer la ligne"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3 rounded-xl mt-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
-                Montant Total Estimé
-              </span>
-              <span className="text-base font-extrabold text-teal-700 dark:text-teal-400">
-                {lignes
-                  .reduce((acc, l) => acc + l.quantite * l.prixUnitaire, 0)
-                  .toLocaleString('fr-FR', { style: 'currency', currency: 'MAD' })}
-              </span>
-            </div>
-          </div>
-        </form>
       </Modal>
     </div>
   );
