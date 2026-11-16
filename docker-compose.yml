@@ -77,6 +77,7 @@ services:
     environment:
       - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_factures
       - COMMANDES_URL=http://service-commandes:8082
+      - RECEPTIONS_URL=http://service-commandes:8082
     depends_on:
       - postgres-db
       - service-commandes

@@ -7,6 +7,8 @@
     "build": "rimraf dist && tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "db:test": "tsx src/test-connection.ts",
+    "db:studio": "drizzle-kit studio",
     "test": "jest --verbose --forceExit --detectOpenHandles",
     "test:recette": "jest tests/recette.test.ts --verbose",
     "test:unit": "jest --verbose --testPathPattern=tests/unit",
@@ -26,6 +28,7 @@
   "dependencies": {
     "axios": "^1.21.0",
     "dotenv": "^18.0.9",
+    "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
@@ -36,6 +39,7 @@
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "drizzle-kit": "^0.31.11",
     "jest": "^30.5.2",
     "rimraf": "^6.1.4",
     "supertest": "^7.3.2",

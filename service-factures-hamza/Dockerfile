@@ -1,45 +1,22 @@
-# =============================================================
-# Dockerfile - Microservice Factures
-# Image multi-stage pour un déploiement optimisé.
-# =============================================================
-
-# --- Étape 1 : Installation des dépendances ---
-FROM node:20-alpine AS deps
-
+# Étape 1 : Compilation TypeScript
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copier les fichiers de dépendances
-COPY package.json package-lock.json* ./
+COPY package*.json tsconfig.json ./
+RUN npm install
 
-# Installer uniquement les dépendances de production
-RUN npm ci --only=production
+COPY src ./src
+RUN npm run build
 
-# --- Étape 2 : Image finale ---
+# Étape 2 : Image d'exécution légère
 FROM node:20-alpine
-
 WORKDIR /app
+ENV NODE_ENV=production PORT=8084
 
-# Créer un utilisateur non-root pour la sécurité
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY package*.json ./
+RUN npm install --omit=dev
 
-# Copier les dépendances depuis l'étape précédente
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
-# Copier le code source
-COPY . .
-
-# Changer de propriétaire des fichiers
-RUN chown -R appuser:appgroup /app
-
-# Utiliser l'utilisateur non-root
-USER appuser
-
-# Exposer le port du service
 EXPOSE 8084
-
-# Variable d'environnement par défaut
-ENV NODE_ENV=production
-ENV PORT=8084
-
-# Commande de démarrage
-CMD ["node", "server.js"]
+CMD ["node", "dist/server.js"]
