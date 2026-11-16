@@ -174,7 +174,7 @@ export async function exportSingleFacturePDF(facture: Facture): Promise<void> {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(15, 23, 42);
-  doc.text('Hamza AIT BENAYAD', 18, 28);
+  doc.text('ProcuraFlow Solutions', 18, 28);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
@@ -290,7 +290,7 @@ export async function exportSingleFacturePDF(facture: Facture): Promise<void> {
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 116, 139);
-  doc.text('Hamza AIT BENAYAD', 18, bottomY + 5.5);
+  doc.text('ProcuraFlow S.A.R.L', 18, bottomY + 5.5);
   doc.text('RIB : 007 780 0001234567890123 45', 18, bottomY + 10.5);
   doc.text('Attijariwafa Bank — Agadir', 18, bottomY + 15.5);
 
