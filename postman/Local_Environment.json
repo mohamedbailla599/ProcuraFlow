@@ -1,7 +1,37 @@
 {
   "id": "local-achats",
   "name": "Local",
-  "values": [],
-  "_postman_variable_scope": "environment",
-  "_postman_exported_using": "Postman/10"
+  "values": [
+    {
+      "key": "commandesUrl",
+      "value": "http://localhost:8082",
+      "enabled": true
+    },
+    {
+      "key": "receptionsUrl",
+      "value": "http://localhost:8083",
+      "enabled": true
+    },
+    {
+      "key": "commandeId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "ligneCommandeId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "cleCreation",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "receptionId",
+      "value": "",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
 }

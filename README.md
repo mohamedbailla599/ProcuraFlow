@@ -38,7 +38,7 @@ Chaque développeur est pleinement responsable de son microservice backend et de
 |---|---|---|:---:|---|:---:|
 | **Fournisseurs** | **Mohamed Bailla** | Java 21 / Spring Boot 3 / Hibernate / Flyway | `:8081` | `schema_fournisseurs` | 🟢 **Opérationnel** |
 | **Commandes** | **Yassine** | Java 21 / Spring Boot 3 / JPA | `:8082` | `schema_commandes` | 🟡 *En préparation* |
-| **Réceptions** | **Ali** | Java 21 / Spring Boot 3 / JPA | `:8083` | `schema_receptions` | 🟡 *En préparation* |
+| **Réceptions** | **Ali** | Java 21 / Spring Boot 3 / JPA | `:8083` | `schema_receptions` | [Consultation et enregistrement](service-receptions-ali/README.md) |
 | **Factures** | **Hamza** | Node.js / Express / Prisma ou TypeORM | `:8084` | `schema_factures` | 🟡 *En préparation* |
 | **Frontend Global** | **Mohamed Bailla** | React 18 / TypeScript / Tailwind / Vite | `:5173` | — | 🟢 **Opérationnel** |
 
@@ -69,7 +69,7 @@ ProcuraFlow/
 │   └── README.md                          # Documentation technique du microservice
 │
 ├── service-commandes-yassine/             # Microservice Commandes (En développement)
-├── service-receptions-ali/                # Microservice Réceptions (En développement)
+├── service-receptions-ali/                # Réceptions et suivi des livraisons partielles
 ├── service-factures-hamza/                # Microservice Factures (En développement)
 │
 ├── database/                              # Scripts d'initialisation PostgreSQL

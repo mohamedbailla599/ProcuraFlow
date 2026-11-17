@@ -1,8 +1,81 @@
 {
   "info": {
     "name": "Projet Achats Univ",
-    "description": "Collection à compléter avec les requêtes des services achats.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": []
+  "item": [
+    {
+      "name": "Réceptions",
+      "item": [
+        {
+          "name": "Commandes recevables (consulter les statuts)",
+          "request": {
+            "method": "GET",
+            "url": "{{commandesUrl}}/api/commandes"
+          }
+        },
+        {
+          "name": "Quantités restantes",
+          "request": {
+            "method": "GET",
+            "url": "{{receptionsUrl}}/api/receptions/commandes/{{commandeId}}/soldes"
+          }
+        },
+        {
+          "name": "Enregistrer une livraison",
+          "request": {
+            "method": "POST",
+            "url": "{{receptionsUrl}}/api/receptions",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cleCreation\": \"{{cleCreation}}\",\n  \"commandeId\": {{commandeId}},\n  \"remarques\": \"Livraison partielle\",\n  \"lignes\": [{\"ligneCommandeId\": {{ligneCommandeId}}, \"quantiteRecue\": 1}]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('cleCreation')) {",
+                  "  pm.environment.set('cleCreation', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Création ou renvoi identique', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "if ([200, 201].includes(pm.response.code)) pm.environment.set('receptionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Réceptions de la commande",
+          "request": {
+            "method": "GET",
+            "url": "{{receptionsUrl}}/api/receptions?commandeId={{commandeId}}"
+          }
+        },
+        {
+          "name": "Détail de la réception",
+          "request": {
+            "method": "GET",
+            "url": "{{receptionsUrl}}/api/receptions/{{receptionId}}"
+          }
+        }
+      ]
+    }
+  ]
 }

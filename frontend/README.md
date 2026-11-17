@@ -56,7 +56,7 @@ Chaque développeur est pleinement propriétaire de son microservice backend et 
 |---|---|---|---|---|---|
 | **Fournisseurs** | Mohamed Bailla | Java 21 / Spring Boot 3 | `:8081` | `/api/fournisseurs` | **Opérationnel** |
 | **Commandes** | Yassine | Java 21 / Spring Boot 3 | `:8082` | `/api/commandes` | *En préparation* |
-| **Réceptions** | Ali | Java 21 / Spring Boot 3 | `:8083` | `/api/receptions` | *En préparation* |
+| **Réceptions** | Ali | Java 21 / Spring Boot 3 | `:8083` | `/api/receptions` | Consultation et enregistrement |
 | **Factures** | Hamza | Node.js / Express | `:8084` | `/api/factures` | *En préparation* |
 
 ---
