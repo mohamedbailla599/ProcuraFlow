@@ -1,0 +1,425 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  ShoppingBag,
+  Edit2,
+  Power,
+  RotateCcw,
+  Copy,
+  Check,
+  Star,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
+import { Fournisseur } from '../types/fournisseur';
+import { computeSupplierRating } from '../utils/scoring';
+import { SupplierOrderStats, formatMAD } from '../utils/orderStats';
+import { getStaggerDelayMs } from '../utils/pagination';
+
+interface FournisseurTableProps {
+  fournisseurs: Fournisseur[];
+  loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  batchKey?: number;
+  isAnimatingEntrance?: boolean;
+  orderStats?: Record<number, SupplierOrderStats>;
+  onEdit: (fournisseur: Fournisseur) => void;
+  onToggleStatus: (fournisseur: Fournisseur) => void;
+  onViewCommandes: (fournisseur: Fournisseur) => void;
+}
+
+export const FournisseurTable: React.FC<FournisseurTableProps> = ({
+  fournisseurs,
+  loading,
+  error = null,
+  onRetry,
+  batchKey = 0,
+  isAnimatingEntrance = false,
+  orderStats,
+  onEdit,
+  onToggleStatus,
+  onViewCommandes,
+}) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Guarantee that the table is always scrolled to the start on load/update
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = 0;
+    }
+  }, [fournisseurs]);
+
+  const copyToClipboard = (text: string, key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1800);
+  };
+
+  const getInitials = (name: string): string => {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'FO';
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
+
+  // Loading Skeleton State
+  if (loading && fournisseurs.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden animate-fade-in-up">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/50">
+          <div className="h-4 w-48 rounded-md skeleton-shimmer" />
+        </div>
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className={`flex items-center justify-between p-5 space-x-6 stagger-${i}`}>
+              <div className="flex items-center space-x-3.5 w-1/3">
+                <div className="w-10 h-10 rounded-xl skeleton-shimmer shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-3/4 rounded-md skeleton-shimmer" />
+                  <div className="h-3 w-1/3 rounded-md skeleton-shimmer" />
+                </div>
+              </div>
+              <div className="h-4 w-1/4 rounded-md skeleton-shimmer" />
+              <div className="h-4 w-1/5 rounded-md skeleton-shimmer" />
+              <div className="h-6 w-18 rounded-full skeleton-shimmer" />
+              <div className="h-8 w-28 rounded-lg skeleton-shimmer" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error && fournisseurs.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200/80 dark:border-rose-900/60 p-12 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-3.5 border border-rose-100 dark:border-rose-900/60">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1.5">
+          Impossible de charger cette page
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed mb-4">
+          {error}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Réessayer</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Empty State
+  if (fournisseurs.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-16 text-center shadow-xs animate-fade-in-up">
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mx-auto mb-4">
+          <Building2 className="w-7 h-7" />
+        </div>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1.5">Aucun fournisseur trouvé</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+          Aucun fournisseur ne correspond aux critères de filtre ou de recherche sélectionnés.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+      {loading && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-0.5 bg-teal-500/20 overflow-hidden z-10"
+        >
+          <div className="h-full w-1/3 bg-teal-600 dark:bg-teal-400 animate-pulse rounded-full" />
+        </div>
+      )}
+      <div ref={scrollContainerRef} className="overflow-x-auto w-full">
+        <table className="w-full min-w-[960px] text-left border-collapse table-fixed">
+          {/* Explicit balanced column proportions with minimum constraints to guarantee action buttons are never clipped */}
+          <colgroup>
+            <col className="w-[28%] min-w-[210px]" />
+            <col className="w-[23%] min-w-[190px]" />
+            <col className="w-[21%] min-w-[170px]" />
+            <col className="w-[12%] min-w-[110px]" />
+            <col className="w-[8%] min-w-[85px]" />
+            <col className="w-[145px] min-w-[145px]" />
+          </colgroup>
+
+          <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider select-none">
+            <tr>
+              <th scope="col" className="px-5 py-3.5">
+                Fournisseur
+              </th>
+              <th scope="col" className="px-4 py-3.5">
+                Coordonnées
+              </th>
+              <th scope="col" className="px-4 py-3.5">
+                Adresse
+              </th>
+              <th scope="col" className="px-3 py-3.5">
+                Évaluation
+              </th>
+              <th scope="col" className="px-3 py-3.5 text-center">
+                Statut
+              </th>
+              <th scope="col" className="pr-5 pl-2 py-3.5 text-right w-[145px] min-w-[145px] whitespace-nowrap">
+                Actions
+              </th>
+            </tr>
+          </thead>
+
+          <tbody
+            className={`divide-y divide-slate-100/80 dark:divide-slate-800/80 text-sm transition-opacity duration-150 ${
+              loading ? 'opacity-55 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            {fournisseurs.map((fournisseur, index) => {
+              const initials = getInitials(fournisseur.nom);
+              const rating = computeSupplierRating(fournisseur);
+              const stats = orderStats?.[fournisseur.id];
+
+              return (
+                <tr
+                  key={`${batchKey}-${fournisseur.id}`}
+                  className={`hover:bg-teal-50/30 dark:hover:bg-slate-800/50 transition-colors duration-150 group ${
+                    isAnimatingEntrance ? 'supplier-entrance' : ''
+                  }`}
+                  style={
+                    isAnimatingEntrance
+                      ? { animationDelay: `${getStaggerDelayMs(index, fournisseurs.length)}ms` }
+                      : undefined
+                  }
+                >
+                  {/* Colonne 1: Fournisseur (Avatar + Nom + ID) */}
+                  <td className="px-6 py-4 align-middle">
+                    <div className="flex items-center space-x-3.5 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 select-none transition-all duration-200 group-hover:scale-105 ${
+                          fournisseur.actif
+                            ? 'bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-950/60 dark:to-emerald-950/60 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80 shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-semibold text-slate-900 dark:text-white group-hover:text-teal-900 dark:group-hover:text-teal-300 transition-colors duration-150 truncate text-sm"
+                          title={fournisseur.nom}
+                        >
+                          {fournisseur.nom}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
+                          ID: #{fournisseur.id}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Colonne 2: Coordonnées (Email + Téléphone avec copie) */}
+                  <td className="px-5 py-4 align-middle">
+                    <div className="flex flex-col space-y-1.5 min-w-0">
+                      {/* Email */}
+                      <div className="flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 min-w-0 text-xs">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                        <span className="truncate" title={fournisseur.email}>
+                          {fournisseur.email}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => copyToClipboard(fournisseur.email, `mail-${fournisseur.id}`, e)}
+                          title="Copier l'adresse e-mail"
+                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
+                          aria-label="Copier l'adresse e-mail"
+                        >
+                          {copiedKey === `mail-${fournisseur.id}` ? (
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Téléphone */}
+                      {fournisseur.telephone ? (
+                        <div className="flex items-center space-x-1.5 text-slate-500 dark:text-slate-400 min-w-0 text-xs">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                          <span className="truncate" title={fournisseur.telephone}>
+                            {fournisseur.telephone}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => copyToClipboard(fournisseur.telephone!, `phone-${fournisseur.id}`, e)}
+                            title="Copier le numéro de téléphone"
+                            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
+                            aria-label="Copier le numéro de téléphone"
+                          >
+                            {copiedKey === `phone-${fournisseur.id}` ? (
+                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Téléphone non renseigné</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Colonne 3: Adresse */}
+                  <td className="px-5 py-4 align-middle">
+                    {fournisseur.adresse ? (
+                      <div className="flex items-start space-x-1.5 text-slate-600 dark:text-slate-400 min-w-0 text-xs">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0 mt-0.5" />
+                        <span className="truncate flex-1" title={fournisseur.adresse}>
+                          {fournisseur.adresse}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => copyToClipboard(fournisseur.adresse!, `addr-${fournisseur.id}`, e)}
+                          title="Copier l'adresse"
+                          className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-150 shrink-0 p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 active:scale-90"
+                          aria-label="Copier l'adresse"
+                        >
+                          {copiedKey === `addr-${fournisseur.id}` ? (
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">Adresse non renseignée</span>
+                    )}
+                  </td>
+
+                  {/* Colonne 4: Évaluation & Scoring (Stars only) */}
+                  <td className="px-3 py-4 align-middle whitespace-nowrap">
+                    <div
+                      className="flex items-center space-x-1.5"
+                      title={`Évaluation : ${rating.score.toFixed(1)} / 5.0 (${rating.fiabilitePct}% de fiabilité)`}
+                    >
+                      <div className="flex items-center space-x-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-3.5 h-3.5 ${
+                              star <= Math.round(rating.score)
+                                ? 'text-amber-400 fill-amber-400'
+                                : 'text-slate-200 dark:text-slate-700'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {rating.score.toFixed(1)}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Colonne 4: Statut (Actif / Inactif) */}
+                  <td className="px-4 py-4 align-middle text-center whitespace-nowrap">
+                    {fournisseur.actif ? (
+                      <span className="badge-active">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                        <span>Actif</span>
+                      </span>
+                    ) : (
+                      <span className="badge-inactive">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span>Inactif</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Colonne 6: Actions */}
+                  <td className="pr-5 pl-2 py-4 align-middle text-right whitespace-nowrap w-[145px] min-w-[145px]">
+                    <div className="inline-flex items-center justify-end space-x-1.5 shrink-0">
+                      {/* Action Voir Commandes (Icon-only with glowing hover and order counter badge) */}
+                      <button
+                        type="button"
+                        onClick={() => onViewCommandes(fournisseur)}
+                        title={
+                          stats && stats.totalOrders > 0
+                            ? `${fournisseur.nom} : ${stats.activeOrders} cde(s) active(s) · Total commandé : ${formatMAD(stats.totalOrderedAmount)} (Engagé : ${formatMAD(stats.totalCommittedAmount)})${stats.completedOrders > 0 ? ` · Cdes réceptionnées/facturées : ${formatMAD(stats.receivedOrInvoicedAmount)}` : ''}${stats.latestOrderDate ? ` · Dernière : ${new Date(stats.latestOrderDate).toLocaleDateString('fr-FR')}` : ''}`
+                            : `Consulter les bons de commande de ${fournisseur.nom}`
+                        }
+                        aria-label={`Voir les commandes de ${fournisseur.nom}`}
+                        className="relative group/cmd w-8 h-8 flex items-center justify-center rounded-lg border border-teal-200/90 dark:border-teal-800/80 bg-teal-50/80 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 transition-all duration-200 hover:bg-teal-100 dark:hover:bg-teal-900/60 hover:border-teal-400 dark:hover:border-teal-400 hover:shadow-[0_0_12px_rgba(20,184,166,0.55)] dark:hover:shadow-[0_0_16px_rgba(45,212,191,0.45)] hover:scale-105 active:scale-95"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 transition-transform duration-200 group-hover/cmd:scale-110" />
+                        {stats && stats.totalOrders > 0 && (
+                          <span
+                            className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 flex items-center justify-center text-[9px] font-extrabold rounded-full bg-teal-600 text-white shadow-xs border border-white dark:border-slate-900"
+                            title={`${stats.activeOrders} commande(s) active(s)`}
+                          >
+                            {stats.activeOrders}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Action Modifier */}
+                      <button
+                        type="button"
+                        onClick={() => onEdit(fournisseur)}
+                        title="Modifier la fiche fournisseur"
+                        aria-label="Modifier le fournisseur"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-transparent hover:border-blue-200 dark:hover:border-blue-800/60 transition-all duration-150 active:scale-95"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Action Activer / Désactiver */}
+                      {fournisseur.actif ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggleStatus(fournisseur)}
+                          title="Désactiver ce fournisseur"
+                          aria-label="Désactiver le fournisseur"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition-all duration-150 active:scale-95"
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onToggleStatus(fournisseur)}
+                          title="Réactiver ce fournisseur"
+                          aria-label="Réactiver le fournisseur"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/60 transition-all duration-150 active:scale-95"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
