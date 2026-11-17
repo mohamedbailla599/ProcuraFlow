@@ -2,6 +2,12 @@ server:
   port: 8083
 
 spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  jackson:
+    deserialization:
+      accept-float-as-int: false
   application:
     name: service-receptions
   datasource:
@@ -20,4 +26,4 @@ spring:
 
 services:
   commandes:
-    url: "${COMMANDES_URL}"
+    url: "${COMMANDES_URL:http://localhost:8082}"

@@ -56,6 +56,8 @@ services:
       - "8083:8083"
     environment:
       - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_receptions
+        - DB_USERNAME=admin_achats
+        - DB_PASSWORD=pass_secure
       - COMMANDES_URL=http://service-commandes:8082
     depends_on:
       - postgres-db
