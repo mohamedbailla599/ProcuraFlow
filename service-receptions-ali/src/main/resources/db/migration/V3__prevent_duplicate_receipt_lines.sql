@@ -1,0 +1,3 @@
+ALTER TABLE schema_receptions.lignes_reception
+ADD CONSTRAINT uq_ligne_reception_commande
+UNIQUE (reception_id, ligne_commande_id);

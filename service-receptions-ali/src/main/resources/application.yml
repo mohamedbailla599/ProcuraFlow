@@ -17,3 +17,7 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+services:
+  commandes:
+    url: "${COMMANDES_URL}"
