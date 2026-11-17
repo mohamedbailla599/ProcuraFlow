@@ -24,6 +24,7 @@ public class Reception {
     @Column(name = "cle_creation")
     private UUID cleCreation;
     @OneToMany(mappedBy = "reception", cascade = CascadeType.PERSIST)
+    @org.hibernate.annotations.BatchSize(size = 100)
     @OrderBy("id")
     private List<LigneReception> lignes = new ArrayList<>();
 

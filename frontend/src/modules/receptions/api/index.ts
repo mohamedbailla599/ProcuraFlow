@@ -11,7 +11,11 @@ async function json<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
-export const list = (signal: AbortSignal) => json<Reception[]>(base, { signal });
+export function list(page: number, commandeId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ page: String(page), size: '10' });
+  if (commandeId) query.set('commandeId', commandeId);
+  return json<{ contenu: Reception[]; nombrePages: number }>(`${base}?${query}`, { signal });
+}
 export const soldes = (id: number, signal: AbortSignal) =>
   json<Solde[]>(`${base}/commandes/${id}/soldes`, { signal });
 export const creer = (body: Creation) => json<Reception>(base, {

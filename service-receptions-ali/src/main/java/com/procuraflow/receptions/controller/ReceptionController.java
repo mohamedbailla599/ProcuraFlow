@@ -25,6 +25,12 @@ public class ReceptionController {
         return ResponseEntity.of(service.findById(id));
     }
 
+    @GetMapping(params = "page")
+    public ReceptionService.PageReceptions page(@RequestParam(required = false) Long commandeId,
+                                               @RequestParam int page, @RequestParam(defaultValue = "10") int size) {
+        return service.page(commandeId, page, size);
+    }
+
     @GetMapping("/commandes/{id}/soldes")
     public List<ReceptionService.Solde> soldes(@PathVariable Long id) {
         return service.soldes(id);

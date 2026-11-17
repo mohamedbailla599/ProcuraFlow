@@ -6,6 +6,7 @@ import com.procuraflow.receptions.dto.ReceptionResponse;
 import com.procuraflow.receptions.entity.Reception;
 import com.procuraflow.receptions.repository.ReceptionRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,16 @@ public class ReceptionService {
 
     public Optional<ReceptionResponse> findById(Long id) {
         return repository.findById(id).map(ReceptionResponse::from);
+    }
+
+    public record PageReceptions(List<ReceptionResponse> contenu, int nombrePages) {}
+
+    public PageReceptions page(Long commandeId, int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new ResponseStatusException(BAD_REQUEST, "Page à partir de zéro, taille entre 1 et 100.");
+        }
+        var result = repository.consulterPage(commandeId, PageRequest.of(page, size));
+        return new PageReceptions(result.map(ReceptionResponse::from).getContent(), result.getTotalPages());
     }
 
     public record Solde(Long ligneCommandeId, String designation, int quantiteCommandee, long restante) {}

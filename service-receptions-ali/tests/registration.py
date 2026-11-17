@@ -49,6 +49,10 @@ class RegistrationTest(unittest.TestCase):
         self.assertEqual((status, balances[0]["restante"]), (200, 4))
         self.assertEqual(http(RECEPTIONS, self.payload(5))[0], 409)
         self.assertEqual(http(RECEPTIONS, self.payload(4))[0], 201)
+        status, page = http(f"{RECEPTIONS}?commandeId={self.order_id}&page=1&size=1")
+        self.assertEqual(status, 200, page)
+        self.assertEqual(page["nombrePages"], 2)
+        self.assertEqual(page["contenu"], [receipt])
 
     def test_invalid_is_atomic(self):
         payload = self.payload(1)
@@ -63,6 +67,22 @@ class RegistrationTest(unittest.TestCase):
         with ThreadPoolExecutor(2) as pool:
             results = list(pool.map(lambda _: http(RECEPTIONS, self.payload(6))[0], range(2)))
         self.assertEqual(sorted(results), [201, 409])
+
+    def test_simultaneous_retry(self):
+        payload = self.payload(5)
+        with ThreadPoolExecutor(2) as pool:
+            results = list(pool.map(lambda _: http(RECEPTIONS, payload), range(2)))
+        self.assertEqual(sorted(status for status, _ in results), [200, 201])
+        self.assertEqual(results[0][1], results[1][1])
+
+    def test_missing_and_ineligible_orders(self):
+        payload = self.payload(1)
+        payload["commandeId"] = 999999999
+        self.assertEqual(http(RECEPTIONS, payload)[0], 404)
+        req = Request(f"{COMMANDES}/{self.order_id}/statut?statut=ANNULEE", method="PUT")
+        with urlopen(req, timeout=15) as response:
+            self.assertEqual(response.status, 200)
+        self.assertEqual(http(RECEPTIONS, self.payload(1))[0], 409)
 
 
 if __name__ == "__main__":

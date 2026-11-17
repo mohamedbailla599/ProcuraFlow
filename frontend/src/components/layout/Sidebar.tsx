@@ -195,11 +195,11 @@ export const Sidebar: React.FC = () => {
               <span>Architecture Microservices</span>
             </div>
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
-              1/4 Opérationnel
+              {NAV_ITEMS.filter(item => item.status === 'operational').length}/{NAV_ITEMS.length} opérationnels
             </span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            Module Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>) opérationnel avec Neon PostgreSQL. Commandes, Réceptions et Factures sont en cours de préparation.
+            Fournisseurs et Réceptions disposent de leur propre API REST et de leur schéma PostgreSQL.
           </p>
           <div className="pt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 border-t border-slate-200/60 dark:border-slate-800/60">
             <span className="inline-flex items-center space-x-1">
