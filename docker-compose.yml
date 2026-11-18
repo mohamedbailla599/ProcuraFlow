@@ -2,24 +2,24 @@ networks:
   reseau-achats:
     driver: bridge
 
-volumes:
-  pg_data:
+# volumes:
+#   pg_data:
 
 services:
-  postgres-db:
-    image: postgres:15-alpine
-    container_name: postgres-db
-    environment:
-      POSTGRES_DB: db_achats_univ
-      POSTGRES_USER: admin_achats
-      POSTGRES_PASSWORD: pass_secure
-    ports:
-      - "5433:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - reseau-achats
+  # postgres-db:
+  #   image: postgres:15-alpine
+  #   container_name: postgres-db
+  #   environment:
+  #     POSTGRES_DB: db_achats_univ
+  #     POSTGRES_USER: admin_achats
+  #     POSTGRES_PASSWORD: pass_secure
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+  #     - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   networks:
+  #     - reseau-achats
 
   service-commandes:
     build: ./service-commandes-yassine/service-commandes
@@ -27,10 +27,10 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_commandes
-      - SPRING_DATASOURCE_USERNAME=admin_achats
-      - SPRING_DATASOURCE_PASSWORD=pass_secure
-    depends_on:
-      - postgres-db
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://ep-raspy-river-b93b0b9s-pooler.c-7.eu-central-1.aws.neon.tech/procura_flow?currentSchema=schema_commandes&sslmode=require
+      - SPRING_DATASOURCE_USERNAME=procura_flow_owner
+      - SPRING_DATASOURCE_PASSWORD=npg_3w9QxgufqXIh
+    # depends_on:
+    #   - postgres-db
     networks:
       - reseau-achats
