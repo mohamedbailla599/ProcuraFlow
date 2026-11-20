@@ -1,17 +1,23 @@
-/**
- * Client API pour le module Réceptions (Ali - Spring Boot :8083)
- *
- * Directives d'intégration ProcuraFlow :
- * 1. Endpoint de base : /api/receptions (redirigé par le proxy Vite vers :8083)
- * 2. Communication exclusivement via HTTP REST + JSON
- * 3. Ne jamais interroger directement la base ou le schéma d'un autre microservice
- *
- * Fonctions à implémenter par le propriétaire :
- * - getReceptions(filters?: Record<string, any>): Promise<Reception[]>
- * - getReceptionById(id: number | string): Promise<Reception>
- * - createReception(data: Partial<Reception>): Promise<Reception>
- * - validateConformite(id: number | string, conformite: boolean, motif?: string): Promise<Reception>
- */
+import type { Creation, Reception, Solde } from '../types';
 
-export const RECEPTIONS_API_BASE = '/api/receptions';
+const base = '/api/receptions';
 
+async function json<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new Error(problem?.detail || `Service indisponible ou requête refusée (HTTP ${response.status}).`);
+  }
+  return response.json();
+}
+
+export function list(page: number, commandeId: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ page: String(page), size: '10' });
+  if (commandeId) query.set('commandeId', commandeId);
+  return json<{ contenu: Reception[]; nombrePages: number }>(`${base}?${query}`, { signal });
+}
+export const soldes = (id: number, signal: AbortSignal) =>
+  json<Solde[]>(`${base}/commandes/${id}/soldes`, { signal });
+export const creer = (body: Creation) => json<Reception>(base, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+});

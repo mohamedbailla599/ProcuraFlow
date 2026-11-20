@@ -1,0 +1,29 @@
+server:
+  port: 8083
+
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+  application:
+    name: service-receptions
+  datasource:
+    url: "${DB_URL}"
+    username: "${DB_USERNAME}"
+    password: "${DB_PASSWORD}"
+  flyway:
+    schemas: schema_receptions
+    default-schema: schema_receptions
+    baseline-on-migrate: true
+    baseline-version: 0
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+services:
+  commandes:
+    url: "${COMMANDES_URL:http://localhost:8082}"

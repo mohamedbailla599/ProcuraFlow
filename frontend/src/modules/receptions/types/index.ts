@@ -1,19 +1,29 @@
-/**
- * Types pour le module Réceptions (Ali - Spring Boot :8083)
- *
- * Définissez ici les interfaces TypeScript pour :
- * - Reception / BonDeReception (id, numeroReception, commandeId, dateReception, statutConformite, agentReception, etc.)
- * - LigneReception (id, ligneCommandeId, quantiteRecue, quantiteConforme, quantiteRejetee, motifRejet, etc.)
- * - Filtres et statistiques de réceptions
- */
-
-export interface Reception {
-  id?: number | string;
-  numeroReception?: string;
-  commandeId?: number | string;
-  dateReception?: string;
-  statutConformite?: 'CONFORME' | 'NON_CONFORME' | 'PARTIELLE' | 'EN_ATTENTE';
-  agentReception?: string;
-  remarques?: string;
+export interface LigneReception {
+  id: number;
+  ligneCommandeId: number;
+  quantiteRecue: number;
+  remarques: string | null;
 }
 
+export interface Reception {
+  id: number;
+  commandeId: number;
+  dateReception: string | null;
+  statutReception: string | null;
+  remarques: string | null;
+  lignes: LigneReception[];
+}
+
+export interface Solde {
+  ligneCommandeId: number;
+  designation: string;
+  quantiteCommandee: number;
+  restante: number;
+}
+
+export interface Creation {
+  commandeId: number;
+  cleCreation: string;
+  remarques: string;
+  lignes: { ligneCommandeId: number; quantiteRecue: number }[];
+}
