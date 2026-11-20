@@ -1,6 +1,10 @@
 import React from 'react';
-import { RouterProvider } from 'react-router-dom';
-import { router } from './router';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppLayout } from '../components/layout/AppLayout';
+import { FournisseursPage } from '../modules/fournisseurs/pages/FournisseursPage';
+import { CommandesPage } from '../modules/commandes/pages/CommandesPage';
+import { ReceptionsPage } from '../modules/receptions/pages/ReceptionsPage';
+import { FacturesPage } from '../modules/factures/pages/FacturesPage';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AppProvider } from '../context/AppContext';
 
@@ -8,9 +12,25 @@ export default function App() {
   return (
     <ThemeProvider>
       <AppProvider>
-        <RouterProvider router={router} />
+        <BrowserRouter useTransitions={false}>
+          <Routes>
+            <Route path="/" element={<AppLayout />}>
+              <Route index element={<Navigate to="/fournisseurs" replace />} />
+              <Route path="fournisseurs" element={<FournisseursPage />} />
+              <Route path="fournisseurs/*" element={<FournisseursPage />} />
+              <Route path="commandes" element={<CommandesPage />} />
+              <Route path="commandes/*" element={<CommandesPage />} />
+              <Route path="receptions" element={<ReceptionsPage />} />
+              <Route path="receptions/*" element={<ReceptionsPage />} />
+              <Route path="factures" element={<FacturesPage />} />
+              <Route path="factures/*" element={<FacturesPage />} />
+              <Route path="*" element={<Navigate to="/fournisseurs" replace />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
       </AppProvider>
     </ThemeProvider>
   );
 }
+
 

@@ -85,9 +85,9 @@ services:
     ports:
       - "8084:8084"
     environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_factures
-      - COMMANDES_URL=http://service-commandes:8082
-      - RECEPTIONS_URL=http://service-receptions:8083
+      - DATABASE_URL=postgresql://admin_achats:pass_secure@postgres-db:5432/db_achats_univ
+      - COMMANDES_SERVICE_URL=http://service-commandes:8082
+      - RECEPTIONS_SERVICE_URL=http://service-receptions:8083
     depends_on:
       postgres-db:
         condition: service_healthy

@@ -25,7 +25,6 @@ export const AppLayout: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
         <Topbar />
         <main
-          key={location.pathname}
           id="main-content"
           tabIndex={-1}
           className="flex-1 w-full overflow-y-auto overflow-x-hidden focus:outline-none scroll-smooth"

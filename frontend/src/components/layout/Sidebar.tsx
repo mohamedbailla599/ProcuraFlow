@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Building2,
   ShoppingBag,
@@ -65,7 +65,6 @@ const NAV_ITEMS: NavItem[] = [
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     mobileSidebarOpen,
     setMobileSidebarOpen,
@@ -75,13 +74,9 @@ export const Sidebar: React.FC = () => {
 
   const isFacturesActive = location.pathname.startsWith('/factures');
 
-  const handleNavClick = (e: React.MouseEvent, to: string) => {
-    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) {
-      e.preventDefault();
-      navigate(to);
-      if (mobileSidebarOpen) {
-        setMobileSidebarOpen(false);
-      }
+  const handleNavClick = () => {
+    if (mobileSidebarOpen) {
+      setMobileSidebarOpen(false);
     }
   };
 
@@ -95,7 +90,7 @@ export const Sidebar: React.FC = () => {
       >
         <NavLink
           to="/fournisseurs"
-          onClick={(e) => handleNavClick(e, '/fournisseurs')}
+          onClick={handleNavClick}
           className="flex items-center space-x-3 group relative cursor-pointer"
           title={isCollapsed ? 'ProcuraFlow v1.0 — Plateforme Achats' : undefined}
         >
@@ -152,7 +147,7 @@ export const Sidebar: React.FC = () => {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  onClick={(e) => handleNavClick(e, item.to)}
+                  onClick={handleNavClick}
                   className={({ isActive }) =>
                     `group relative flex items-center rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
                       isCollapsed
