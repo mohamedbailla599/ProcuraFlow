@@ -262,7 +262,7 @@ export const CommandesPage: React.FC = () => {
         [field]: isNaN(parsed) ? 0 : parsed,
       };
     } else {
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], designation: String(value) };
     }
 
     setLignes(updated);
