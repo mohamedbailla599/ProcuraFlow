@@ -1,7 +1,13 @@
 {
   "id": "local-achats",
-  "name": "ProcuraFlow Local Environment",
+  "name": "Local - ProcuraFlow",
   "values": [
+    {
+      "key": "FACTURES_BASE_URL",
+      "value": "http://localhost:8084",
+      "type": "default",
+      "enabled": true
+    },
     {
       "key": "FOURNISSEURS_BASE_URL",
       "value": "http://localhost:8081",
@@ -21,8 +27,20 @@
       "enabled": true
     },
     {
-      "key": "FACTURES_BASE_URL",
-      "value": "http://localhost:8084",
+      "key": "factureId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "commandeId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "receptionId",
+      "value": "1",
       "type": "default",
       "enabled": true
     },

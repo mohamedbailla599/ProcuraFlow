@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { GlobalCommandPalette } from './GlobalCommandPalette';
@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 export const AppLayout: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const location = useLocation();
 
   return (
     <div
@@ -24,6 +25,7 @@ export const AppLayout: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
         <Topbar />
         <main
+          key={location.pathname}
           id="main-content"
           tabIndex={-1}
           className="flex-1 w-full overflow-y-auto overflow-x-hidden focus:outline-none scroll-smooth"

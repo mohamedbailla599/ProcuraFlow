@@ -60,5 +60,6 @@ CREATE TABLE schema_factures.factures (
     reception_id INT,
     date_facture TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     montant_facture DECIMAL(10, 2) NOT NULL,
+    numero_facture VARCHAR(50) UNIQUE,
     statut_paiement VARCHAR(30) DEFAULT 'NON_PAYEE'
 );

@@ -1,6 +1,24 @@
-.env
+# Dépendances
 node_modules/
-vendor/
+
+# Environnement
+.env
+
+# Logs
+logs/
+*.log
+
+# Tests
+coverage/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
 dist/
 build/
-coverage/
