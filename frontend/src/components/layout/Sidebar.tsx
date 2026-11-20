@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   Building2,
   ShoppingBag,
@@ -7,8 +7,6 @@ import {
   Receipt,
   Layers,
   X,
-  Server,
-  Database,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react';
@@ -17,62 +15,39 @@ import { useApp } from '../../context/AppContext';
 interface NavItem {
   to: string;
   label: string;
-  subtitle: string;
-  port: string;
-  tech: string;
   icon: React.ComponentType<{ className?: string }>;
-  status: 'operational' | 'in_preparation';
 }
 
 const NAV_ITEMS: NavItem[] = [
   {
     to: '/fournisseurs',
     label: 'Fournisseurs',
-    subtitle: 'Référentiel & Éligibilité',
-    port: ':8081',
-    tech: 'Spring Boot',
     icon: Building2,
-    status: 'operational',
   },
   {
     to: '/commandes',
     label: 'Commandes',
-    subtitle: "Bons & Lignes d'achat",
-    port: ':8082',
-    tech: 'Spring Boot',
     icon: ShoppingBag,
-    status: 'operational',
   },
   {
     to: '/receptions',
     label: 'Réceptions',
-    subtitle: 'Suivi des livraisons',
-    port: ':8083',
-    tech: 'Spring Boot',
     icon: Truck,
-    status: 'operational',
   },
   {
     to: '/factures',
     label: 'Factures',
-    subtitle: 'Rapprochement 3-voies',
-    port: ':8084',
-    tech: 'Node.js',
     icon: Receipt,
-    status: 'operational',
   },
 ];
 
 export const Sidebar: React.FC = () => {
-  const location = useLocation();
   const {
     mobileSidebarOpen,
     setMobileSidebarOpen,
     isSidebarCollapsed,
     toggleSidebarCollapsed,
   } = useApp();
-
-  const isFacturesActive = location.pathname.startsWith('/factures');
 
   const handleNavClick = () => {
     if (mobileSidebarOpen) {
@@ -134,13 +109,10 @@ export const Sidebar: React.FC = () => {
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Modules Métier
               </span>
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
-                4 services
-              </span>
             </div>
           )}
 
-          <nav className="space-y-1.5">
+          <nav className="space-y-1">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -149,10 +121,10 @@ export const Sidebar: React.FC = () => {
                   to={item.to}
                   onClick={handleNavClick}
                   className={({ isActive }) =>
-                    `group relative flex items-center rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
+                    `group relative flex items-center rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
                       isCollapsed
                         ? 'justify-center p-2.5'
-                        : 'justify-between px-3 py-2.5'
+                        : 'px-3 py-2.5'
                     } ${
                       isActive
                         ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-200 font-semibold shadow-xs border border-teal-200/80 dark:border-teal-800/80'
@@ -174,56 +146,14 @@ export const Sidebar: React.FC = () => {
                         </div>
 
                         {!isCollapsed && (
-                          <div className="truncate">
-                            <div className="flex items-center space-x-1.5">
-                              <span className="truncate text-sm font-semibold">{item.label}</span>
-                              {item.status === 'operational' ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300">
-                                  Opérationnel
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
-                                  En préparation
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
-                              {item.subtitle}
-                            </p>
-                          </div>
+                          <span className="truncate text-sm font-semibold tracking-tight">{item.label}</span>
                         )}
                       </div>
 
-                      {!isCollapsed && (
-                        <div className="shrink-0 text-right pl-2">
-                          <span
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                              isActive
-                                ? 'bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200'
-                                : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500'
-                            }`}
-                          >
-                            {item.port}
-                          </span>
-                        </div>
-                      )}
-
                       {/* Tooltip for Collapsed Sidebar Mode */}
                       {isCollapsed && (
-                        <div className="absolute left-full ml-3 px-3 py-2 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-xl border border-slate-700 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 flex items-center space-x-2.5">
-                          <div className="font-semibold text-sm">{item.label}</div>
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                              item.status === 'operational'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            }`}
-                          >
-                            {item.status === 'operational' ? 'Opérationnel' : 'En prép.'}
-                          </span>
-                          <span className="font-mono text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                            {item.port}
-                          </span>
+                        <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-xl border border-slate-700 text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50">
+                          <span className="font-semibold">{item.label}</span>
                         </div>
                       )}
                     </>
@@ -233,68 +163,10 @@ export const Sidebar: React.FC = () => {
             })}
           </nav>
         </div>
-
-        {/* Integration Architecture Card */}
-        {isCollapsed ? (
-          <div className="flex justify-center group relative">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/60 transition-colors cursor-pointer shadow-2xs">
-              <Server className="w-4 h-4" />
-            </div>
-
-            {/* Hover Tooltip */}
-            <div className="absolute left-full ml-3 p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-xl border border-slate-700 text-xs w-60 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 space-y-1">
-              <div className="font-bold flex items-center justify-between text-teal-400">
-                <span>Architecture Microservices</span>
-                <span className="text-[10px] bg-teal-500/20 px-1.5 py-0.5 rounded">4/4 Actifs</span>
-              </div>
-              <p className="text-[11px] text-slate-300 leading-snug">
-                Fournisseurs (:8081), Commandes (:8082), Réceptions (:8083) et Factures (:8084) opérationnels.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-850/70 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <Server className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                <span>Architecture Microservices</span>
-              </div>
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
-                4/4 Opérationnels
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>), Commandes (<span className="font-mono text-teal-600 dark:text-teal-400">:8082</span>), Réceptions (<span className="font-mono text-teal-600 dark:text-teal-400">:8083</span>) et Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084</span>) opérationnels.
-            </p>
-            <div className="pt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 border-t border-slate-200/60 dark:border-slate-800/60">
-              <span className="inline-flex items-center space-x-1">
-                <Database className="w-3 h-3 text-emerald-500" />
-                <span>Neon PostgreSQL 17</span>
-              </span>
-              <span className="text-teal-600 dark:text-teal-400 font-mono">
-                {isFacturesActive ? 'schema_factures' : 'schema_fournisseurs'}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Footer Info & Collapse Toggle */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col gap-2">
-        {!isCollapsed && (
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 px-1">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-medium">
-                {isFacturesActive ? 'Service Factures (Hamza)' : 'Passerelle ProcuraFlow'}
-              </span>
-            </div>
-            <span className="font-mono text-[10px] text-slate-400">
-              {isFacturesActive ? ':8084' : ':5173'}
-            </span>
-          </div>
-        )}
-
+      {/* Footer & Collapse Toggle */}
+      <div className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
         {/* Desktop Collapse / Expand Toggle Button */}
         <button
           type="button"
@@ -330,7 +202,7 @@ export const Sidebar: React.FC = () => {
       {/* Desktop Persistent Sidebar with Width Transition */}
       <aside
         className={`hidden lg:block shrink-0 h-full z-20 transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed ? 'w-20' : 'w-72'
+          isSidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         {renderSidebarContent(isSidebarCollapsed)}
@@ -346,7 +218,7 @@ export const Sidebar: React.FC = () => {
           />
 
           {/* Slide-over panel */}
-          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] shadow-2xl z-50 animate-fade-in-right">
+          <div className="fixed inset-y-0 left-0 w-64 max-w-[85vw] shadow-2xl z-50 animate-fade-in-right">
             {renderSidebarContent(false)}
           </div>
         </div>
