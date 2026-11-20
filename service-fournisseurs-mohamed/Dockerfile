@@ -1,16 +1,13 @@
 # =============================================================================
 # Stage 1: Build the Spring Boot application with Maven
 # =============================================================================
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 
 WORKDIR /workspace
 
-# Install Maven in the build stage
-RUN apk add --no-cache maven
-
-# Cache dependencies first
+# Cache dependencies layer
 COPY pom.xml ./
-RUN mvn dependency:go-offline -B
+RUN mvn dependency:resolve -B || true
 
 # Copy source code and package application (tests run separately in CI/local verification)
 COPY src ./src
