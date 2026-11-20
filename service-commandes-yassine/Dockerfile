@@ -1,1 +1,5 @@
-# À compléter avec l'image de base et la commande de démarrage du service.
+FROM openjdk:17-jdk-slim
+VOLUME /tmp
+ARG JAR_FILE=target/*.jar
+COPY ${JAR_FILE} app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
