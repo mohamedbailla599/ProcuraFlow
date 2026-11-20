@@ -17,7 +17,10 @@ public class CommandeController {
     private CommandeService commandeService;
 
     @GetMapping
-    public List<Commande> listerCommandes() {
+    public List<Commande> listerCommandes(@RequestParam(required = false) Long fournisseurId) {
+        if (fournisseurId != null) {
+            return commandeService.getCommandesByFournisseur(fournisseurId);
+        }
         return commandeService.getAllCommandes();
     }
 
