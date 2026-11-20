@@ -19,11 +19,23 @@ export const router = createBrowserRouter([
         element: <FournisseursPage />,
       },
       {
+        path: 'fournisseurs/*',
+        element: <FournisseursPage />,
+      },
+      {
         path: 'commandes',
         element: <CommandesPage />,
       },
       {
+        path: 'commandes/*',
+        element: <CommandesPage />,
+      },
+      {
         path: 'receptions',
+        element: <ReceptionsPage />,
+      },
+      {
+        path: 'receptions/*',
         element: <ReceptionsPage />,
       },
       {
@@ -41,4 +53,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-

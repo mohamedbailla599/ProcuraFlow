@@ -41,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
     port: ':8082',
     tech: 'Spring Boot',
     icon: ShoppingBag,
-    status: 'in_preparation',
+    status: 'operational',
   },
   {
     to: '/receptions',
@@ -50,7 +50,7 @@ const NAV_ITEMS: NavItem[] = [
     port: ':8083',
     tech: 'Spring Boot',
     icon: Truck,
-    status: 'in_preparation',
+    status: 'operational',
   },
   {
     to: '/factures',
@@ -75,9 +75,13 @@ export const Sidebar: React.FC = () => {
 
   const isFacturesActive = location.pathname.startsWith('/factures');
 
-  const handleNavClick = () => {
-    if (mobileSidebarOpen) {
-      setMobileSidebarOpen(false);
+  const handleNavClick = (e: React.MouseEvent, to: string) => {
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) {
+      e.preventDefault();
+      navigate(to);
+      if (mobileSidebarOpen) {
+        setMobileSidebarOpen(false);
+      }
     }
   };
 
@@ -91,8 +95,8 @@ export const Sidebar: React.FC = () => {
       >
         <NavLink
           to="/fournisseurs"
-          onClick={handleNavClick}
-          className="flex items-center space-x-3 group relative"
+          onClick={(e) => handleNavClick(e, '/fournisseurs')}
+          className="flex items-center space-x-3 group relative cursor-pointer"
           title={isCollapsed ? 'ProcuraFlow v1.0 — Plateforme Achats' : undefined}
         >
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
@@ -148,9 +152,9 @@ export const Sidebar: React.FC = () => {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  onClick={handleNavClick}
+                  onClick={(e) => handleNavClick(e, item.to)}
                   className={({ isActive }) =>
-                    `group relative flex items-center rounded-xl text-xs font-medium transition-all duration-150 ${
+                    `group relative flex items-center rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer ${
                       isCollapsed
                         ? 'justify-center p-2.5'
                         : 'justify-between px-3 py-2.5'
@@ -246,12 +250,10 @@ export const Sidebar: React.FC = () => {
             <div className="absolute left-full ml-3 p-3 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-xl border border-slate-700 text-xs w-60 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50 space-y-1">
               <div className="font-bold flex items-center justify-between text-teal-400">
                 <span>Architecture Microservices</span>
-                <span className="text-[10px] bg-teal-500/20 px-1.5 py-0.5 rounded">2/4 Actifs</span>
+                <span className="text-[10px] bg-teal-500/20 px-1.5 py-0.5 rounded">4/4 Actifs</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-snug">
-                {isFacturesActive
-                  ? 'Factures (:8084 • Node.js) connecté à Neon PostgreSQL (schema_factures).'
-                  : 'Fournisseurs (:8081) et Factures (:8084) connectés à Neon PostgreSQL.'}
+                Fournisseurs (:8081), Commandes (:8082), Réceptions (:8083) et Factures (:8084) opérationnels.
               </p>
             </div>
           </div>
@@ -263,19 +265,11 @@ export const Sidebar: React.FC = () => {
                 <span>Architecture Microservices</span>
               </div>
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300">
-                2/4 Opérationnels
+                4/4 Opérationnels
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              {isFacturesActive ? (
-                <>
-                  Microservice Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084 • Node.js</span>) connecté à Neon PostgreSQL. Rapprochement 3-voies actif.
-                </>
-              ) : (
-                <>
-                  Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>) et Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084</span>) opérationnels avec Neon PostgreSQL.
-                </>
-              )}
+              Fournisseurs (<span className="font-mono text-teal-600 dark:text-teal-400">:8081</span>), Commandes (<span className="font-mono text-teal-600 dark:text-teal-400">:8082</span>), Réceptions (<span className="font-mono text-teal-600 dark:text-teal-400">:8083</span>) et Factures (<span className="font-mono text-teal-600 dark:text-teal-400">:8084</span>) opérationnels.
             </p>
             <div className="pt-1.5 flex items-center justify-between text-[10px] font-medium text-slate-400 dark:text-slate-500 border-t border-slate-200/60 dark:border-slate-800/60">
               <span className="inline-flex items-center space-x-1">

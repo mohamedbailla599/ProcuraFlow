@@ -71,7 +71,11 @@ export const Topbar: React.FC = () => {
   const [isFacturesHealthy, setIsFacturesHealthy] = useState<boolean | null>(null);
 
   const isFacturesRoute = location.pathname.startsWith('/factures');
-  const currentMeta = MODULE_META[location.pathname] || MODULE_META['/fournisseurs'];
+  const activeModuleKey =
+    Object.keys(MODULE_META).find(
+      (key) => location.pathname === key || location.pathname.startsWith(`${key}/`)
+    ) || '/fournisseurs';
+  const currentMeta = MODULE_META[activeModuleKey];
   const Icon = currentMeta.icon;
 
   // Libellés dynamiques selon le service actif
