@@ -56,4 +56,27 @@ public class CommandeService {
     public List<Commande> getCommandesByFournisseur(Long fournisseurId) {
         return commandeRepository.findByFournisseurId(fournisseurId);
     }
+    @Transactional
+    public Commande modifierCommande(Long id, Commande commandeDetails) {
+        Commande commande = commandeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Commande non trouvée avec l'id : " + id));
+
+        if (commandeDetails.getFournisseurId() != null) {
+            commande.setFournisseurId(commandeDetails.getFournisseurId());
+        }
+        if (commandeDetails.getStatut() != null) {
+            commande.setStatut(commandeDetails.getStatut());
+        }
+
+        // Mettre à jour les lignes de commande si fournies
+        if (commandeDetails.getLignesCommande() != null) {
+            commande.getLignesCommande().clear();
+            for (LigneCommande ligne : commandeDetails.getLignesCommande()) {
+                ligne.setCommande(commande);
+                commande.getLignesCommande().add(ligne);
+            }
+        }
+
+        return commandeRepository.save(commande);
+    }
 }

@@ -1,111 +1,1004 @@
-import React from 'react';
-import { ShoppingBag, Server, Database, ArrowRight, ShieldAlert } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { PageHeader } from '../../../components/ui/PageHeader';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../components/ui/Card';
-import { Badge } from '../../../components/ui/Badge';
-import { Button } from '../../../components/ui/Button';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  PageHeader,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Modal,
+  LoadingState,
+  EmptyState,
+  ErrorState,
+} from '../../../components/ui';
+import {
+  Plus,
+  Trash2,
+  Eye,
+  Search,
+  RefreshCw,
+  Package,
+  ShoppingBag,
+  Wallet,
+  CheckCircle2,
+  Clock,
+  ArrowUpDown,
+  X,
+  Building2,
+  Calendar,
+  Hash,
+  BarChart3,
+  PieChart,
+  ChevronLeft,
+  ChevronRight,
+  Edit,
+  AlertCircle,
+} from 'lucide-react';
+import {
+  getAllCommandes,
+  getCommandesByFournisseur,
+  createCommande,
+  updateCommande,
+  updateCommandeStatut,
+  deleteCommande,
+} from '../api';
+import { Commande, LigneCommande } from '../types';
+import { formatMontant, formatDate } from '../utils';
+
+type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE';
+type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
+
+const WORKFLOW_STEPS = ['EN_ATTENTE', 'VALIDEE', 'EN_COURS', 'LIVREE'] as const;
+const ITEMS_PER_PAGE = 5;
 
 export const CommandesPage: React.FC = () => {
-  return (
-    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6 animate-fade-in-up">
-      {/* Page Header with Shared Component */}
-      <PageHeader
-        badge={
-          <Badge variant="warning" dot size="sm">
-            Module en préparation • Phase 3
-          </Badge>
+  const [commandes, setCommandes] = useState<Commande[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Liste des fournisseurs pour le sélecteur interactif & affichage enrichi
+  const [fournisseursList, setFournisseursList] = useState<any[]>([]);
+
+  // Filtres, Tri & Pagination
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [fournisseurFilter, setFournisseurFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Modals & Mode Édition
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [selectedCommande, setSelectedCommande] = useState<Commande | null>(null);
+
+  // Formulaire nouvelle / modification commande
+  const [fournisseurId, setFournisseurId] = useState<number>(1);
+  const [lignes, setLignes] = useState<Omit<LigneCommande, 'id'>[]>([
+    { designation: '', quantite: 1, prixUnitaire: 1 },
+  ]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadCommandes = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = fournisseurFilter.trim()
+        ? await getCommandesByFournisseur(Number(fournisseurFilter))
+        : await getAllCommandes();
+      setCommandes(data);
+    } catch (err: any) {
+      setError(err.message || 'Impossible de joindre le service Commandes (:8082)');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFournisseurs = () => {
+    fetch('/api/fournisseurs?includeInactive=true')
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        const list = data.content || data;
+        setFournisseursList(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        setFournisseursList([]);
+      });
+  };
+
+  useEffect(() => {
+    loadCommandes();
+    loadFournisseurs();
+  }, []);
+
+  useEffect(() => {
+    if (isModalOpen && fournisseursList.length === 0) {
+      loadFournisseurs();
+    }
+  }, [isModalOpen]);
+
+  // Réinitialiser la page courante lorsqu'on filtre ou recherche
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, fournisseurFilter]);
+
+  const getFournisseurLabel = (id: number) => {
+    const found = fournisseursList.find((f) => Number(f.id) === Number(id));
+    return found ? `${found.nom}` : `Fournisseur #${id}`;
+  };
+
+  // Calcul des KPI en temps réel
+  const kpiStats = useMemo(() => {
+    const total = commandes.length;
+    const enAttente = commandes.filter((c) => c.statut === 'EN_ATTENTE').length;
+    const valideesOuLivrees = commandes.filter(
+      (c) => c.statut === 'VALIDEE' || c.statut === 'LIVREE' || c.statut === 'EN_COURS'
+    ).length;
+    const montantEngage = commandes
+      .filter((c) => c.statut !== 'ANNULEE')
+      .reduce((sum, c) => sum + (c.montantTotal || 0), 0);
+
+    return { total, enAttente, valideesOuLivrees, montantEngage };
+  }, [commandes]);
+
+  // Filtrage et tri côté client
+  const filteredCommandes = useMemo(() => {
+    return commandes
+      .filter((cmd) => {
+        if (statusFilter !== 'ALL' && cmd.statut !== statusFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchId = `#${cmd.id}`.includes(q) || String(cmd.id).includes(q);
+          const matchFournisseur =
+            `fournisseur #${cmd.fournisseurId}`.includes(q) ||
+            String(cmd.fournisseurId).includes(q) ||
+            getFournisseurLabel(cmd.fournisseurId).toLowerCase().includes(q);
+          const matchArticle = cmd.lignesCommande?.some((l) =>
+            l.designation.toLowerCase().includes(q)
+          );
+          if (!matchId && !matchFournisseur && !matchArticle) return false;
         }
-        title="Gestion des Commandes d'Achat"
-        description="Création, validation des bons de commande et gestion des lignes d'articles associées aux fournisseurs référencés."
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'montant-desc':
+            return (b.montantTotal || 0) - (a.montantTotal || 0);
+          case 'montant-asc':
+            return (a.montantTotal || 0) - (b.montantTotal || 0);
+          case 'date-asc':
+            return new Date(a.dateCommande).getTime() - new Date(b.dateCommande).getTime();
+          case 'date-desc':
+          default:
+            return new Date(b.dateCommande).getTime() - new Date(a.dateCommande).getTime();
+        }
+      });
+  }, [commandes, statusFilter, searchQuery, sortBy, fournisseursList]);
+
+  // Données paginées pour le tableau
+  const totalPages = Math.ceil(filteredCommandes.length / ITEMS_PER_PAGE) || 1;
+  const paginatedCommandes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredCommandes.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredCommandes, currentPage]);
+
+  // Statistiques pour les Charts (en bas de tableau)
+  const chartStats = useMemo(() => {
+    const counts = {
+      EN_ATTENTE: commandes.filter((c) => c.statut === 'EN_ATTENTE').length,
+      VALIDEE: commandes.filter((c) => c.statut === 'VALIDEE').length,
+      EN_COURS: commandes.filter((c) => c.statut === 'EN_COURS').length,
+      LIVREE: commandes.filter((c) => c.statut === 'LIVREE').length,
+      ANNULEE: commandes.filter((c) => c.statut === 'ANNULEE').length,
+    };
+
+    const fournisseurMap: { [key: number]: number } = {};
+    commandes.forEach((c) => {
+      if (c.statut !== 'ANNULEE') {
+        fournisseurMap[c.fournisseurId] = (fournisseurMap[c.fournisseurId] || 0) + (c.montantTotal || 0);
+      }
+    });
+
+    const topFournisseurs = Object.entries(fournisseurMap)
+      .map(([id, montant]) => ({
+        id: Number(id),
+        nom: getFournisseurLabel(Number(id)),
+        montant,
+      }))
+      .sort((a, b) => b.montant - a.montant)
+      .slice(0, 3);
+
+    return { counts, topFournisseurs };
+  }, [commandes, fournisseursList]);
+
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setFormError(null);
+    setFournisseurId(1);
+    setLignes([{ designation: '', quantite: 1, prixUnitaire: 1 }]);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (cmd: Commande) => {
+    setEditingId(cmd.id);
+    setFormError(null);
+    setFournisseurId(cmd.fournisseurId);
+    setLignes(
+      cmd.lignesCommande?.map((l) => ({
+        designation: l.designation,
+        quantite: Math.max(1, Math.round(l.quantite)),
+        prixUnitaire: Math.max(1, Math.round(l.prixUnitaire)),
+      })) || [{ designation: '', quantite: 1, prixUnitaire: 1 }]
+    );
+    setIsModalOpen(true);
+  };
+
+  const handleAddLigne = () => {
+    setFormError(null);
+    setLignes([...lignes, { designation: '', quantite: 1, prixUnitaire: 1 }]);
+  };
+
+  const handleRemoveLigne = (index: number) => {
+    if (lignes.length > 1) {
+      setFormError(null);
+      setLignes(lignes.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleLigneChange = (
+    index: number,
+    field: keyof Omit<LigneCommande, 'id'>,
+    value: string | number
+  ) => {
+    setFormError(null);
+    const updated = [...lignes];
+
+    if (field === 'quantite' || field === 'prixUnitaire') {
+      const parsed = parseInt(String(value).replace(/[^0-9]/g, ''), 10);
+      updated[index] = {
+        ...updated[index],
+        [field]: isNaN(parsed) ? 0 : parsed,
+      };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
+
+    setLignes(updated);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    for (let i = 0; i < lignes.length; i++) {
+      const l = lignes[i];
+      if (!l.designation.trim()) {
+        setFormError(`Veuillez saisir la désignation de l'article à la ligne ${i + 1}.`);
+        return;
+      }
+      if (!Number.isInteger(l.quantite) || l.quantite < 1) {
+        setFormError(`La quantité de la ligne ${i + 1} doit être un entier supérieur ou égal à 1.`);
+        return;
+      }
+      if (!Number.isInteger(l.prixUnitaire) || l.prixUnitaire <= 0) {
+        setFormError(`Le prix unitaire de la ligne ${i + 1} doit être un entier strictement positif (> 0 MAD).`);
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      const cleanLignes = lignes.map((l) => ({
+        designation: l.designation.trim(),
+        quantite: Math.round(l.quantite),
+        prixUnitaire: Math.round(l.prixUnitaire),
+      }));
+
+      if (editingId) {
+        await updateCommande(editingId, {
+          fournisseurId: Number(fournisseurId),
+          lignesCommande: cleanLignes,
+        });
+      } else {
+        await createCommande({
+          fournisseurId: Number(fournisseurId),
+          statut: 'EN_ATTENTE',
+          lignesCommande: cleanLignes,
+        });
+      }
+      setIsModalOpen(false);
+      setLignes([{ designation: '', quantite: 1, prixUnitaire: 1 }]);
+      loadCommandes();
+    } catch (err: any) {
+      setFormError(err.message || "Erreur lors de l'enregistrement.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatutChange = async (id: number, newStatut: string) => {
+    try {
+      const updated = await updateCommandeStatut(id, newStatut);
+      if (selectedCommande && selectedCommande.id === id) {
+        setSelectedCommande(updated);
+      }
+      loadCommandes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(`Supprimer définitivement la commande #${id} ?`)) return;
+    try {
+      await deleteCommande(id);
+      if (selectedCommande && selectedCommande.id === id) {
+        setSelectedCommande(null);
+      }
+      loadCommandes();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const resetAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setSortBy('date-desc');
+    if (fournisseurFilter) {
+      setFournisseurFilter('');
+      setTimeout(loadCommandes, 0);
+    }
+  };
+
+  const getStatutBadge = (statut: string) => {
+    switch (statut) {
+      case 'VALIDEE':
+      case 'LIVREE':
+        return <Badge variant="success" dot size="sm">{statut}</Badge>;
+      case 'ANNULEE':
+        return <Badge variant="danger" dot size="sm">{statut}</Badge>;
+      case 'EN_COURS':
+        return <Badge variant="info" dot size="sm">{statut}</Badge>;
+      default:
+        return <Badge variant="warning" dot size="sm">{statut}</Badge>;
+    }
+  };
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || statusFilter !== 'ALL' || fournisseurFilter.trim() !== '';
+
+  const totalFormMontant = lignes.reduce(
+    (acc, l) => acc + Math.round(l.quantite || 0) * Math.round(l.prixUnitaire || 0),
+    0
+  );
+
+  return (
+    <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
+      <PageHeader
+        badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
+        title="Gestion des Commandes"
+        description="Créez, suivez et gérez les bons de commande et leurs lignes d'achat."
         actions={
-          <Link to="/fournisseurs">
-            <Button variant="primary" size="sm" icon={<ArrowRight className="w-4 h-4" />}>
-              Consulter les Fournisseurs
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              icon={<RefreshCw className="w-4 h-4" />}
+              onClick={loadCommandes}
+            >
+              Actualiser
             </Button>
-          </Link>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleOpenCreate}
+            >
+              Nouvelle Commande
+            </Button>
+          </div>
         }
       />
 
-      {/* Specifications Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-2">
-              <Server className="w-5 h-5" />
+      {/* KPI Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('ALL')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'ALL' ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Commandes</span>
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 flex items-center justify-center text-teal-600">
+              <ShoppingBag className="w-4 h-4" />
             </div>
-            <CardTitle>Microservice Dédié</CardTitle>
-            <CardDescription>service-commandes-yassine</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Responsable :</span> <span className="font-semibold text-slate-800 dark:text-slate-200">Yassine</span></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Stack :</span> Java 21 / Spring Boot 3</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Port local :</span> <code className="text-teal-600 dark:text-teal-400 font-bold font-mono">:8082</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Statut :</span> <Badge variant="warning" size="xs">En préparation</Badge></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
-              <Database className="w-5 h-5" />
-            </div>
-            <CardTitle>Persistance & Données</CardTitle>
-            <CardDescription>schema_commandes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Base :</span> Neon PostgreSQL 17</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Tables :</span> <code className="text-xs font-mono">commandes, lignes_commande</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Isolation :</span> Schéma propriétaire strict</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Règle :</span> Aucun accès inter-schéma direct</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <CardTitle>Contrat d'Intégration</CardTitle>
-            <CardDescription>REST API JSON</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Endpoints :</span> <code className="text-xs font-mono text-teal-600 dark:text-teal-400">GET /api/commandes</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Filtres :</span> <code className="text-xs font-mono">?fournisseurId=&#123;id&#125;</code></div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Consommateurs :</span> Fournisseurs, Réceptions, Factures</div>
-              <div><span className="text-slate-400 dark:text-slate-500 font-medium">Protocole :</span> HTTP REST synchrone</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Integration Notice */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-start space-x-3.5">
-          <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60 shrink-0">
-            <ShieldAlert className="w-5 h-5" />
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              Prêt pour l'implémentation par Yassine
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed max-w-2xl">
-              La structure modulaire (<code className="text-xs font-mono">api/</code>, <code className="text-xs font-mono">components/</code>, <code className="text-xs font-mono">types/</code>, <code className="text-xs font-mono">utils/</code>) et les composants UI partagés (<code className="text-xs font-mono">Button</code>, <code className="text-xs font-mono">Badge</code>, <code className="text-xs font-mono">Card</code>, <code className="text-xs font-mono">Modal</code>) sont prêts à l'emploi. Le module <strong>Fournisseurs</strong> reste 100% opérationnel sur le port <code className="text-xs font-mono text-teal-600 dark:text-teal-400">:8081</code>.
-            </p>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.total}</span>
+          </div>
+        </button>
+
+        <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Budget Engagé</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {formatMontant(kpiStats.montantEngage)}
+            </span>
           </div>
         </div>
 
-        <Link to="/fournisseurs" className="shrink-0">
-          <Button variant="outline" size="sm">
-            Voir le module actif
-          </Button>
-        </Link>
+        <button
+          type="button"
+          onClick={() => setStatusFilter('VALIDEE')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'VALIDEE' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Validées / Exécution</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.valideesOuLivrees}</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('EN_ATTENTE')}
+          className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
+            statusFilter === 'EN_ATTENTE' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200/90 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">En Attente</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{kpiStats.enAttente}</span>
+          </div>
+        </button>
       </div>
+
+      {/* Barre d'outils & Filtres */}
+      <Card>
+        <CardContent className="pt-4 space-y-4">
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Rechercher par #ID commande, fournisseur ou article..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+              <input
+                type="number"
+                min={1}
+                placeholder="ID Fournisseur API..."
+                value={fournisseurFilter}
+                onChange={(e) => setFournisseurFilter(e.target.value)}
+                className="w-44 px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+              <Button variant="secondary" size="md" onClick={loadCommandes}>
+                Filtrer API
+              </Button>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700"
+              >
+                <option value="date-desc">Plus récentes</option>
+                <option value="date-asc">Plus anciennes</option>
+                <option value="montant-desc">Montant décroissant</option>
+                <option value="montant-asc">Montant croissant</option>
+              </select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="md" onClick={resetAllFilters}>
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tableau des commandes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bons de commande ({filteredCommandes.length})</CardTitle>
+          <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <LoadingState message="Chargement des commandes..." />
+          ) : error ? (
+            <ErrorState message={error} onRetry={loadCommandes} />
+          ) : filteredCommandes.length === 0 ? (
+            <EmptyState title="Aucune commande trouvée" />
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4">Réf. BC</th>
+                      <th className="py-3.5 px-4">Fournisseur</th>
+                      <th className="py-3.5 px-4">Date Émission</th>
+                      <th className="py-3.5 px-4">Articles</th>
+                      <th className="py-3.5 px-4">Montant Total</th>
+                      <th className="py-3.5 px-4">Statut</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                    {paginatedCommandes.map((cmd) => (
+                      <tr key={cmd.id} className="hover:bg-teal-50/30 dark:hover:bg-slate-800/50">
+                        <td className="py-3.5 px-4 font-bold">BC-{String(cmd.id).padStart(4, '0')}</td>
+                        <td className="py-3.5 px-4 font-semibold">{getFournisseurLabel(cmd.fournisseurId)}</td>
+                        <td className="py-3.5 px-4 text-xs text-slate-500">{formatDate(cmd.dateCommande)}</td>
+                        <td className="py-3.5 px-4">{cmd.lignesCommande?.length || 0} ligne(s)</td>
+                        <td className="py-3.5 px-4 font-extrabold text-teal-600">{formatMontant(cmd.montantTotal)}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            {getStatutBadge(cmd.statut)}
+                            <select
+                              value={cmd.statut}
+                              onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                              className="text-xs border rounded px-1.5 py-0.5 bg-transparent dark:border-slate-700"
+                            >
+                              <option value="EN_ATTENTE">EN_ATTENTE</option>
+                              <option value="VALIDEE">VALIDEE</option>
+                              <option value="EN_COURS">EN_COURS</option>
+                              <option value="LIVREE">LIVREE</option>
+                              <option value="ANNULEE">ANNULEE</option>
+                            </select>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-1.5">
+                          <Button variant="outline" size="xs" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => setSelectedCommande(cmd)}>
+                            Détails
+                          </Button>
+                          <Button variant="secondary" size="xs" icon={<Edit className="w-3.5 h-3.5" />} onClick={() => handleOpenEdit(cmd)}>
+                            Modifier
+                          </Button>
+                          <Button variant="danger" size="xs" icon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => handleDelete(cmd.id)}>
+                            Supprimer
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                <span>Page {currentPage} sur {totalPages}</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="xs" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
+                    Précédent
+                  </Button>
+                  <Button variant="outline" size="xs" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Graphiques Statistiques en bas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PieChart className="w-4 h-4 text-teal-600" /> Répartition par Statut
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              { label: 'En Attente', count: chartStats.counts.EN_ATTENTE, color: 'bg-amber-500' },
+              { label: 'Validées', count: chartStats.counts.VALIDEE, color: 'bg-emerald-500' },
+              { label: 'En Cours', count: chartStats.counts.EN_COURS, color: 'bg-blue-500' },
+              { label: 'Livrées', count: chartStats.counts.LIVREE, color: 'bg-teal-600' },
+              { label: 'Annulées', count: chartStats.counts.ANNULEE, color: 'bg-rose-500' },
+            ].map((item) => (
+              <div key={item.label} className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span>{item.label}</span>
+                  <span className="font-semibold">{item.count}</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className={`h-full ${item.color}`} style={{ width: `${(item.count / (commandes.length || 1)) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="w-4 h-4 text-teal-600" /> Top Fournisseurs
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {chartStats.topFournisseurs.map((f, idx) => (
+              <div key={f.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 flex justify-between items-center">
+                <span className="font-bold text-sm">#{idx + 1} {f.nom}</span>
+                <span className="font-extrabold text-teal-600">{formatMontant(f.montant)}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Modal Création / Édition */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingId ? `Modifier la Commande #BC-${String(editingId).padStart(4, '0')}` : 'Nouvelle Commande'}
+        description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
+        maxWidth="3xl"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="primary" loading={submitting} onClick={handleSubmit}>
+              {editingId ? 'Mettre à jour la commande' : 'Enregistrer la commande'}
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 pt-3 mt-1 transition-all duration-300 ease-out"
+        >
+          {formError && (
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-pulse">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {/* Bloc Fournisseur */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3 transition-all duration-200 hover:border-teal-300 dark:hover:border-teal-800">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Fournisseur concerné
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <div className="sm:col-span-8">
+                <select
+                  value={fournisseurId}
+                  onChange={(e) => setFournisseurId(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all cursor-pointer"
+                >
+                  {fournisseursList.length === 0 ? (
+                    <option value={fournisseurId}>
+                      Fournisseur #{fournisseurId} (Saisie manuelle)
+                    </option>
+                  ) : (
+                    fournisseursList
+                      .filter((f: any) => f.actif !== false)
+                      .map((f: any) => (
+                        <option key={f.id} value={f.id}>
+                          #{f.id} — {f.nom} {f.ville ? `(${f.ville})` : ''}
+                        </option>
+                      ))
+                  )}
+                </select>
+              </div>
+              <div className="sm:col-span-4 flex items-center gap-2">
+                <span className="text-xs text-slate-400 shrink-0">ID direct :</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={fournisseurId}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                    setFournisseurId(isNaN(val) || val < 1 ? 1 : val);
+                  }}
+                  className="w-full px-3 py-2 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-center focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-teal-600" />
+              Connecté au référentiel Fournisseurs (:8081).
+            </p>
+          </div>
+
+          {/* Bloc Lignes de commande */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Lignes de commande
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Ajoutez les articles composant ce bon de commande (prix entiers strictement positifs).
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="teal-subtle"
+                size="xs"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                onClick={handleAddLigne}
+              >
+                Ajouter une ligne
+              </Button>
+            </div>
+
+            <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <div className="col-span-5">Désignation de l'article</div>
+              <div className="col-span-2 text-center">Quantité</div>
+              <div className="col-span-3 text-right">Prix Unitaire (MAD)</div>
+              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-1"></div>
+            </div>
+
+            <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+              {lignes.map((ligne, index) => {
+                const isPriceInvalid = !ligne.prixUnitaire || ligne.prixUnitaire <= 0;
+                const sousTotal = Math.round(ligne.quantite || 0) * Math.round(ligne.prixUnitaire || 0);
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs transition-all duration-200 hover:shadow-sm hover:border-teal-300/80 dark:hover:border-teal-800"
+                  >
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: PC Portable Gamer"
+                        value={ligne.designation}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'designation', e.target.value)
+                        }
+                        className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        placeholder="1"
+                        value={ligne.quantite === 0 ? '' : ligne.quantite}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'quantite', e.target.value)
+                        }
+                        onBlur={() => {
+                          if (!ligne.quantite || ligne.quantite < 1) {
+                            handleLigneChange(index, 'quantite', 1);
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-sm text-center font-semibold border rounded-lg bg-slate-50/50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        placeholder="Ex: 1500"
+                        value={ligne.prixUnitaire === 0 ? '' : ligne.prixUnitaire}
+                        onChange={(e) =>
+                          handleLigneChange(index, 'prixUnitaire', e.target.value)
+                        }
+                        className={`w-full px-3 py-2 text-sm text-right font-semibold border rounded-lg bg-slate-50/50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                          isPriceInvalid
+                            ? 'border-rose-400 focus:ring-rose-500 text-rose-600'
+                            : 'border-slate-200 dark:border-slate-700 focus:ring-teal-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="sm:col-span-1 text-right text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                      {sousTotal.toLocaleString('fr-FR')} MAD
+                    </div>
+                    <div className="sm:col-span-1 text-right">
+                      {lignes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLigne(index)}
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-150"
+                          title="Supprimer la ligne"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Montant Total Estimé en entier strict */}
+            <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3.5 rounded-xl mt-4 transition-all duration-200">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
+                Montant Total Estimé
+              </span>
+              <span className="text-lg font-extrabold text-teal-700 dark:text-teal-400">
+                {totalFormMontant.toLocaleString('fr-FR')} MAD
+              </span>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Détails */}
+      <Modal
+        isOpen={!!selectedCommande}
+        onClose={() => setSelectedCommande(null)}
+        title={`Bon de Commande #BC-${String(selectedCommande?.id || 0).padStart(4, '0')}`}
+        description={`Dossier d'achat rattaché à ${
+          selectedCommande ? getFournisseurLabel(selectedCommande.fournisseurId) : ''
+        }`}
+        maxWidth="3xl"
+        footer={
+          <div className="w-full flex justify-end">
+            <Button variant="primary" size="sm" onClick={() => setSelectedCommande(null)}>
+              Fermer
+            </Button>
+          </div>
+        }
+      >
+        {selectedCommande && (
+          <div className="space-y-6 pt-2">
+            {selectedCommande.statut !== 'ANNULEE' ? (
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  Avancement du cycle de vie
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {WORKFLOW_STEPS.map((step, idx) => {
+                    const currentIdx = WORKFLOW_STEPS.indexOf(
+                      selectedCommande.statut as (typeof WORKFLOW_STEPS)[number]
+                    );
+                    const isCompleted = idx <= currentIdx;
+                    const isCurrent = idx === currentIdx;
+                    return (
+                      <div key={step} className="flex flex-col gap-1.5">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            isCompleted
+                              ? 'bg-teal-600'
+                              : 'bg-slate-200 dark:bg-slate-700'
+                          }`}
+                        />
+                        <span
+                          className={`text-[11px] font-bold ${
+                            isCurrent
+                              ? 'text-teal-700 dark:text-teal-400'
+                              : isCompleted
+                              ? 'text-slate-700 dark:text-slate-300'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
+                Ce bon de commande a été annulé.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  Fournisseur
+                </span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
+                  {getFournisseurLabel(selectedCommande.fournisseurId)}
+                </span>
+                <span className="text-xs text-slate-500">ID #{selectedCommande.fournisseurId}</span>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  Date de création
+                </span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
+                  {formatDate(selectedCommande.dateCommande)}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {selectedCommande.lignesCommande?.length || 0} article(s)
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">
+                  Statut Actuel
+                </span>
+                <div className="mt-1">{getStatutBadge(selectedCommande.statut)}</div>
+              </div>
+            </div>
+
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-4">#</th>
+                    <th className="py-3 px-4">Désignation de l'article</th>
+                    <th className="py-3 px-4 text-center">Quantité</th>
+                    <th className="py-3 px-4 text-right">Prix Unitaire</th>
+                    <th className="py-3 px-4 text-right">Sous-total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {selectedCommande.lignesCommande?.map((ligne, idx) => (
+                    <tr key={ligne.id || idx}>
+                      <td className="py-3 px-4 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
+                        {ligne.designation}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold text-xs">
+                          {ligne.quantite}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-300">
+                        {formatMontant(ligne.prixUnitaire)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-white">
+                        {formatMontant(ligne.quantite * ligne.prixUnitaire)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-teal-50/70 dark:bg-teal-950/40 border-t-2 border-teal-200 dark:border-teal-800">
+                    <td
+                      colSpan={4}
+                      className="py-3.5 px-4 text-right text-xs font-extrabold uppercase tracking-wider text-teal-900 dark:text-teal-300"
+                    >
+                      Montant Total TTC du Bon de Commande
+                    </td>
+                    <td className="py-3.5 px-4 text-right text-base font-extrabold text-teal-700 dark:text-teal-400">
+                      {formatMontant(selectedCommande.montantTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

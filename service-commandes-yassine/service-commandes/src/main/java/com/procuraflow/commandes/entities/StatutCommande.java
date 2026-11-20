@@ -3,7 +3,7 @@ package com.procuraflow.commandes.entities;
 public enum StatutCommande {
     EN_ATTENTE,
     VALIDEE,
-    EXPEDIEE,
+    EN_COURS,
     LIVREE,
     ANNULEE
 }

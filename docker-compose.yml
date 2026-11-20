@@ -45,27 +45,19 @@ services:
     networks:
       - reseau-achats
 
-  frontend:
-    build: ./frontend
-    container_name: frontend-procuraflow
-    ports:
-      - "5173:80"
-    depends_on:
-      - service-fournisseurs
-    networks:
-      - reseau-achats
-
   service-commandes:
-    build: ./service-commandes-yassine
+    build: ./service-commandes-yassine/service-commandes
     container_name: service-commandes
     ports:
       - "8082:8082"
     environment:
-      - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_commandes
+      - SPRING_DATASOURCE_URL=${COMMANDES_DB_URL:-jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_commandes}
+      - SPRING_DATASOURCE_USERNAME=${COMMANDES_DB_USER:-admin_achats}
+      - SPRING_DATASOURCE_PASSWORD=${COMMANDES_DB_PASSWORD:-pass_secure}
       - FOURNISSEURS_URL=http://service-fournisseurs:8081
     depends_on:
-      - postgres-db
-      - service-fournisseurs
+      postgres-db:
+        condition: service_healthy
     networks:
       - reseau-achats
 
@@ -76,10 +68,14 @@ services:
       - "8083:8083"
     environment:
       - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_receptions
+      - DB_USERNAME=admin_achats
+      - DB_PASSWORD=pass_secure
       - COMMANDES_URL=http://service-commandes:8082
     depends_on:
-      - postgres-db
-      - service-commandes
+      postgres-db:
+        condition: service_healthy
+      service-commandes:
+        condition: service_started
     networks:
       - reseau-achats
 
@@ -91,8 +87,21 @@ services:
     environment:
       - DB_URL=jdbc:postgresql://postgres-db:5432/db_achats_univ?currentSchema=schema_factures
       - COMMANDES_URL=http://service-commandes:8082
+      - RECEPTIONS_URL=http://service-receptions:8083
     depends_on:
-      - postgres-db
-      - service-commandes
+      postgres-db:
+        condition: service_healthy
+      service-commandes:
+        condition: service_started
+    networks:
+      - reseau-achats
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-procuraflow
+    ports:
+      - "5173:80"
+    depends_on:
+      - service-fournisseurs
     networks:
       - reseau-achats
