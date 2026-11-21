@@ -36,6 +36,7 @@ import {
   calculateConformiteRate,
   exportReceptionsToCsv,
 } from '../utils';
+import { useApp } from '../../../context/AppContext';
 
 type ConformiteFilter = 'ALL' | 'CONFORME' | 'NON_CONFORME';
 type SortOption = 'date-desc' | 'date-asc' | 'commande-desc' | 'commande-asc' | 'id-desc';
@@ -43,6 +44,7 @@ type SortOption = 'date-desc' | 'date-asc' | 'commande-desc' | 'commande-asc' | 
 const ITEMS_PER_PAGE = 10;
 
 export function ReceptionsPage() {
+  const { isSidebarCollapsed } = useApp();
   const [rows, setRows] = useState<Reception[]>([]);
   const [allReceptions, setAllReceptions] = useState<Reception[]>([]);
   const [commandesList, setCommandesList] = useState<Commande[]>([]);
@@ -173,40 +175,11 @@ export function ReceptionsPage() {
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
-      {/* En-tête de page moderne */}
+      {/* En-tête de page moderne sans boutons dupliqués */}
       <PageHeader
         badge={<Badge variant="teal" dot size="sm">Service Réceptions (:8083)</Badge>}
         title="Réceptions & Suivi des Livraisons"
         description="Contrôlez les livraisons physiques, inspectez la conformité des articles et pointez les entrées en stock."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              icon={<RefreshCw className="w-4 h-4" />}
-              onClick={loadData}
-            >
-              Actualiser
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<Download className="w-4 h-4" />}
-              onClick={() => exportReceptionsToCsv(allReceptions)}
-              disabled={allReceptions.length === 0}
-            >
-              Exporter CSV
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => setCreating(true)}
-            >
-              Nouvelle Réception
-            </Button>
-          </div>
-        }
       />
 
       {/* Grille de 4 Cartes KPI Interactives */}
@@ -310,12 +283,12 @@ export function ReceptionsPage() {
         </div>
       </div>
 
-      {/* Barre d'Outils, Recherche & Filtres */}
+      {/* Barre d'Outils, Recherche, Filtres & 3 Boutons d'Action intégrés */}
       <Card>
-        <CardContent className="pt-4 space-y-4">
-          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        <CardContent className="p-4 space-y-3.5">
+          <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
             {/* Barre de recherche plein texte */}
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-[240px]">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -328,15 +301,15 @@ export function ReceptionsPage() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Filtre direct par commande */}
-            <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+            {/* Filtre direct par commande, Tri & Actions */}
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <input
                   type="search"
@@ -354,7 +327,7 @@ export function ReceptionsPage() {
                   <button
                     type="button"
                     onClick={() => setOrderFilter('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -384,6 +357,41 @@ export function ReceptionsPage() {
                   Effacer
                 </Button>
               )}
+
+              {/* Séparateur */}
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
+
+              {/* 3 Boutons d'Action intégrés */}
+              <button
+                type="button"
+                onClick={loadData}
+                title="Actualiser les réceptions"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-700 shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-200 cursor-pointer group"
+              >
+                <RefreshCw className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 group-hover:rotate-180 transition-all duration-300" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Actualiser</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => exportReceptionsToCsv(allReceptions)}
+                disabled={allReceptions.length === 0}
+                title="Exporter la liste en CSV"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-700 shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-50 group"
+              >
+                <Download className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 transition-colors" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Exporter CSV</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                title="Enregistrer une nouvelle réception"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/20 hover:from-teal-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Nouvelle Réception</span>}
+              </button>
             </div>
           </div>
 
@@ -482,13 +490,13 @@ export function ReceptionsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-850 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-200/80 dark:border-slate-800">
                   <tr>
-                    <th className="py-3.5 px-4">Réception</th>
-                    <th className="py-3.5 px-4">Bon de Commande</th>
-                    <th className="py-3.5 px-4">Date de Livraison</th>
-                    <th className="py-3.5 px-4">Articles / Unités</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Réception</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Bon de Commande</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Date de Livraison</th>
+                    <th className="py-3.5 px-4 whitespace-nowrap">Articles / Unités</th>
                     <th className="py-3.5 px-4">Conformité</th>
                     <th className="py-3.5 px-4">Remarques</th>
-                    <th className="py-3.5 px-4 text-right">Actions</th>
+                    <th className="py-3.5 px-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -504,19 +512,19 @@ export function ReceptionsPage() {
                         className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                       >
                         {/* Réception #ID */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2.5">
                             <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
                               #{row.id}
                             </div>
-                            <span className="font-extrabold text-slate-900 dark:text-white">
+                            <span className="font-extrabold text-slate-900 dark:text-white font-mono text-xs">
                               BL-{String(row.id).padStart(4, '0')}
                             </span>
                           </div>
                         </td>
 
                         {/* Commande #ID */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex flex-col">
                             <span className="inline-flex items-center space-x-1.5 font-semibold text-slate-800 dark:text-slate-200">
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-xs">
@@ -532,15 +540,15 @@ export function ReceptionsPage() {
                         </td>
 
                         {/* Date de réception */}
-                        <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300">
+                        <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           <span className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             {formatReceptionDate(row.dateReception)}
                           </span>
                         </td>
 
                         {/* Articles & Quantités */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/80">
                               <Package className="w-3 h-3 mr-1" />
@@ -550,7 +558,7 @@ export function ReceptionsPage() {
                         </td>
 
                         {/* Conformité */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap">
                           <Badge
                             variant={isConforme ? 'success' : 'warning'}
                             dot
@@ -571,16 +579,18 @@ export function ReceptionsPage() {
                           )}
                         </td>
 
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Eye className="w-3.5 h-3.5" />}
-                            onClick={() => setDetail(row)}
-                          >
-                            Détail
-                          </Button>
+                        {/* Actions : Bouton Icône avec magnifique hover effect */}
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setDetail(row)}
+                              title="Consulter le bordereau de réception"
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-teal-600 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-teal-50 dark:hover:bg-teal-950/70 border border-slate-200/80 dark:border-slate-700/80 hover:border-teal-300 dark:hover:border-teal-700/80 shadow-2xs hover:shadow-xs hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

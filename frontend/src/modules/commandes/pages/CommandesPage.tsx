@@ -34,7 +34,6 @@ import {
   AlertCircle,
   SlidersHorizontal,
   Printer,
-  FileText,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -46,6 +45,7 @@ import {
 } from '../api';
 import { Commande, LigneCommande } from '../types';
 import { formatMontant, formatDate, exportCommandesToCsv } from '../utils';
+import { useApp } from '../../../context/AppContext';
 
 type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE';
 type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
@@ -54,6 +54,7 @@ const WORKFLOW_STEPS = ['EN_ATTENTE', 'VALIDEE', 'EN_COURS', 'LIVREE'] as const;
 const ITEMS_PER_PAGE = 8;
 
 export const CommandesPage: React.FC = () => {
+  const { isSidebarCollapsed } = useApp();
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -378,40 +379,11 @@ export const CommandesPage: React.FC = () => {
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
-      {/* En-tête de page moderne */}
+      {/* En-tête de page moderne sans boutons dupliqués */}
       <PageHeader
         badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
         title="Gestion des Bons de Commande"
         description="Créez, pilotez le cycle d'achat et gérez les lignes de commande auprès des fournisseurs agréés."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              icon={<RefreshCw className="w-4 h-4" />}
-              onClick={loadCommandes}
-            >
-              Actualiser
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<Download className="w-4 h-4" />}
-              onClick={() => exportCommandesToCsv(commandes)}
-              disabled={commandes.length === 0}
-            >
-              Exporter CSV
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={handleOpenCreate}
-            >
-              Nouvelle Commande
-            </Button>
-          </div>
-        }
       />
 
       {/* Grille de 4 Cartes KPI Interactives */}
@@ -512,12 +484,12 @@ export const CommandesPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Barre d'Outils, Recherche & Filtres */}
+      {/* Barre d'Outils, Recherche, Filtres & 3 Boutons d'Action intégrés */}
       <Card>
-        <CardContent className="pt-4 space-y-4">
-          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        <CardContent className="p-4 space-y-3.5">
+          <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
             {/* Recherche globale */}
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-[240px]">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -530,22 +502,22 @@ export const CommandesPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Filtre par Fournisseur & Tri */}
-            <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+            {/* Filtre par Fournisseur, Tri & Actions intégrées */}
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <select
                   value={fournisseurFilter}
                   onChange={(e) => {
                     setFournisseurFilter(e.target.value);
                   }}
-                  className="w-48 px-3 py-2 text-xs font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                  className="w-44 px-3 py-2 text-xs font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
                 >
                   <option value="">Tous les fournisseurs</option>
                   {fournisseursList.map((f: any) => (
@@ -588,6 +560,44 @@ export const CommandesPage: React.FC = () => {
                   Effacer
                 </Button>
               )}
+
+              {/* Séparateur élégant */}
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
+
+              {/* Les 3 Boutons d'Action :
+                  - Mode Icônes seules quand la sidebar n'est PAS repliée (!isSidebarCollapsed)
+                  - Mode Icône + Texte quand la sidebar EST repliée (isSidebarCollapsed)
+              */}
+              <button
+                type="button"
+                onClick={loadCommandes}
+                title="Actualiser les commandes"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-700 shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-200 cursor-pointer group"
+              >
+                <RefreshCw className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 group-hover:rotate-180 transition-all duration-300" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Actualiser</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => exportCommandesToCsv(commandes)}
+                disabled={commandes.length === 0}
+                title="Exporter la liste en CSV"
+                className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-700 shadow-2xs hover:shadow-xs active:scale-95 transition-all duration-200 cursor-pointer disabled:opacity-50 group"
+              >
+                <Download className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 transition-colors" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Exporter CSV</span>}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenCreate}
+                title="Créer une nouvelle commande"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/20 hover:from-teal-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                {isSidebarCollapsed && <span className="hidden md:inline">Nouvelle Commande</span>}
+              </button>
             </div>
           </div>
 
@@ -763,37 +773,38 @@ export const CommandesPage: React.FC = () => {
                           </select>
                         </td>
 
-                        {/* Actions : Compactes sur une seule ligne */}
+                        {/* Actions : Boutons icônes avec magnifique effet de survol (hover) */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              icon={<Eye className="w-3.5 h-3.5" />}
+                            {/* Bouton Détails : Icône Eye avec hover teal */}
+                            <button
+                              type="button"
                               onClick={() => setSelectedCommande(cmd)}
-                              title="Consulter le dossier d'achat"
+                              title="Voir le dossier d'achat complet"
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-teal-600 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-teal-50 dark:hover:bg-teal-950/70 border border-slate-200/80 dark:border-slate-700/80 hover:border-teal-300 dark:hover:border-teal-700/80 shadow-2xs hover:shadow-xs hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
                             >
-                              Détails
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="xs"
-                              icon={<Edit className="w-3.5 h-3.5" />}
+                              <Eye className="w-4 h-4" />
+                            </button>
+
+                            {/* Bouton Modifier : Icône Edit avec hover bleu */}
+                            <button
+                              type="button"
                               onClick={() => handleOpenEdit(cmd)}
-                              title="Modifier les lignes de commande"
+                              title="Modifier la commande et ses lignes d'achat"
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-blue-600 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/70 border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-300 dark:hover:border-blue-700/80 shadow-2xs hover:shadow-xs hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
                             >
-                              Modifier
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:border-rose-300"
-                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              <Edit className="w-4 h-4" />
+                            </button>
+
+                            {/* Bouton Supprimer : Icône Trash2 avec hover rouge */}
+                            <button
+                              type="button"
                               onClick={() => handleDelete(cmd.id)}
-                              title="Supprimer la commande"
+                              title="Supprimer définitivement la commande"
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-rose-600 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-rose-50 dark:hover:bg-rose-950/70 border border-slate-200/80 dark:border-slate-700/80 hover:border-rose-300 dark:hover:border-rose-700/80 shadow-2xs hover:shadow-xs hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
                             >
-                              Supprimer
-                            </Button>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
