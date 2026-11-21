@@ -12,6 +12,7 @@ import {
   LoadingState,
   EmptyState,
   ErrorState,
+  SelectMenu,
 } from '../../../components/ui';
 import {
   Plus,
@@ -34,6 +35,8 @@ import {
   AlertCircle,
   SlidersHorizontal,
   Printer,
+  ArrowUpDown,
+  ChevronDown,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -511,22 +514,21 @@ export const CommandesPage: React.FC = () => {
 
             {/* Filtre par Fournisseur, Tri & Actions intégrées */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <select
-                  value={fournisseurFilter}
-                  onChange={(e) => {
-                    setFournisseurFilter(e.target.value);
-                  }}
-                  className="w-44 px-3 py-2 text-xs font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-                >
-                  <option value="">Tous les fournisseurs</option>
-                  {fournisseursList.map((f: any) => (
-                    <option key={f.id} value={f.id}>
-                      #{f.id} — {f.nom}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SelectMenu
+                value={fournisseurFilter}
+                onChange={(val) => setFournisseurFilter(val)}
+                options={[
+                  { value: '', label: 'Tous les fournisseurs' },
+                  ...fournisseursList.map((f: any) => ({
+                    value: String(f.id),
+                    label: `${f.nom}`,
+                    badge: `#${f.id}`,
+                  })),
+                ]}
+                placeholder="Tous les fournisseurs"
+                icon={<Building2 className="w-3.5 h-3.5" />}
+                menuWidth="w-64"
+              />
 
               {fournisseurFilter && (
                 <Button
@@ -539,16 +541,19 @@ export const CommandesPage: React.FC = () => {
               )}
 
               {/* Sélecteur de Tri */}
-              <select
+              <SelectMenu
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-              >
-                <option value="date-desc">Plus récentes</option>
-                <option value="date-asc">Plus anciennes</option>
-                <option value="montant-desc">Montant décroissant</option>
-                <option value="montant-asc">Montant croissant</option>
-              </select>
+                onChange={(val) => setSortBy(val as SortOption)}
+                options={[
+                  { value: 'date-desc', label: 'Plus récentes' },
+                  { value: 'date-asc', label: 'Plus anciennes' },
+                  { value: 'montant-desc', label: 'Montant décroissant' },
+                  { value: 'montant-asc', label: 'Montant croissant' },
+                ]}
+                placeholder="Trier par"
+                icon={<ArrowUpDown className="w-3.5 h-3.5" />}
+                menuWidth="w-52"
+              />
 
               {hasActiveFilters && (
                 <Button
@@ -757,20 +762,23 @@ export const CommandesPage: React.FC = () => {
 
                         {/* Sélecteur de Statut Unifié & Élégant */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <select
-                            value={cmd.statut}
-                            onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
-                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 transition-all ${getStatusStyle(
-                              cmd.statut
-                            )}`}
-                            title="Modifier le statut d'avancement de la commande"
-                          >
-                            <option value="EN_ATTENTE">● En Attente</option>
-                            <option value="VALIDEE">● Validée</option>
-                            <option value="EN_COURS">● En Cours</option>
-                            <option value="LIVREE">● Livrée</option>
-                            <option value="ANNULEE">● Annulée</option>
-                          </select>
+                          <div className="relative inline-flex items-center">
+                            <select
+                              value={cmd.statut}
+                              onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                              className={`appearance-none text-xs font-semibold pl-3 pr-7 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 transition-all ${getStatusStyle(
+                                cmd.statut
+                              )}`}
+                              title="Modifier le statut d'avancement de la commande"
+                            >
+                              <option value="EN_ATTENTE">● En Attente</option>
+                              <option value="VALIDEE">● Validée</option>
+                              <option value="EN_COURS">● En Cours</option>
+                              <option value="LIVREE">● Livrée</option>
+                              <option value="ANNULEE">● Annulée</option>
+                            </select>
+                            <ChevronDown className="w-3 h-3 absolute right-2 pointer-events-none opacity-60" />
+                          </div>
                         </td>
 
                         {/* Actions : Boutons icônes avec magnifique effet de survol (hover) */}
@@ -971,7 +979,7 @@ export const CommandesPage: React.FC = () => {
                 <select
                   value={fournisseurId}
                   onChange={(e) => setFournisseurId(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 text-sm font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all cursor-pointer"
+                  className="select-custom w-full px-3.5 pr-9 py-2.5 text-sm font-semibold rounded-xl"
                 >
                   {fournisseursList.length === 0 ? (
                     <option value={fournisseurId}>

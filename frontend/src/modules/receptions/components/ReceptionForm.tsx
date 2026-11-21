@@ -181,7 +181,7 @@ export function ReceptionForm({
                   setOrder(e.target.value);
                   setError('');
                 }}
-                className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors cursor-pointer"
+                className="select-custom w-full h-11 px-4 pr-10 text-sm font-medium rounded-xl"
               >
                 <option value="">Sélectionner un bon de commande à réceptionner...</option>
                 {orders.map((c) => (

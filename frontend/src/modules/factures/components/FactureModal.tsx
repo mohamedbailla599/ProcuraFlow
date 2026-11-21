@@ -324,7 +324,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                     onChange={(e) =>
                       setStatutPaiement(e.target.value as 'NON_PAYEE' | 'PAYEE')
                     }
-                    className="w-full h-10 px-3 text-sm bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
+                    className="select-custom w-full h-10 px-3 pr-9 text-sm font-semibold rounded-xl"
                   >
                     <option value="NON_PAYEE">⏳ NON PAYÉE</option>
                     <option value="PAYEE">✅ PAYÉE</option>

@@ -384,9 +384,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       className="bg-white dark:bg-slate-900/95 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs mb-5 transition-colors duration-200"
     >
       {/* Main Toolbar Row */}
-      <div className="p-3 sm:px-4 sm:py-3 flex flex-wrap lg:flex-nowrap items-center justify-between gap-2">
+      <div className="p-3 sm:px-4 sm:py-3 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5">
         {/* Left Cluster: Search + Status Segmented + Sort + Location */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 2xl:gap-2 flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
           {/* 1. Primary Search Input (full-width on narrow phones, fluid up to 220px at xl / 320px at 2xl) */}
           <div className="group relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[150px] sm:max-w-[220px] 2xl:max-w-xs">
             <Search
@@ -504,7 +504,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 role="menu"
                 aria-label="Options de tri"
                 onKeyDown={handleMenuKeyDown}
-                className="absolute left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200/90 dark:border-slate-700/90 py-1.5 z-50"
+                className="absolute left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-750 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
               >
                 <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
@@ -537,10 +537,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                           onSortChange(opt.value);
                           setOpenMenu(null);
                         }}
-                        className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                        className={`w-full px-3 py-2 text-xs rounded-xl flex items-center justify-between text-left transition-colors cursor-pointer ${
                           selected
-                            ? 'bg-teal-50/80 dark:bg-teal-950/50 text-teal-900 dark:text-teal-200 font-semibold'
-                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 font-medium'
+                            ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold border border-teal-200/60 dark:border-teal-800/60 shadow-2xs'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 font-medium'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -607,7 +607,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 role="menu"
                 aria-label="Filtrer par localisation"
                 onKeyDown={handleMenuKeyDown}
-                className="absolute left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200/90 dark:border-slate-700/90 py-1.5 z-50"
+                className="absolute left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-750 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
               >
                 <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
@@ -635,12 +635,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                       onChange={(e) => setCitySearch(e.target.value)}
                       placeholder="Rechercher une ville (ex: Guelmim)..."
                       aria-label="Filtrer la liste des villes"
-                      className="w-full h-8 px-2.5 text-xs bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="w-full h-8 px-2.5 text-xs bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
                 )}
 
-                <div className="py-1 max-h-64 overflow-y-auto">
+                <div className="py-1 max-h-64 overflow-y-auto space-y-0.5">
                   <button
                     type="button"
                     role="menuitemradio"
@@ -649,10 +649,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                       onCityFilterChange('all');
                       setOpenMenu(null);
                     }}
-                    className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                    className={`w-full px-3 py-2 text-xs rounded-xl flex items-center justify-between text-left transition-colors cursor-pointer ${
                       cityFilter === 'all'
-                        ? 'bg-teal-50/80 dark:bg-teal-950/50 text-teal-900 dark:text-teal-200 font-semibold'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 font-medium'
+                        ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold border border-teal-200/60 dark:border-teal-800/60 shadow-2xs'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 font-medium'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -688,10 +688,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                             onCityFilterChange(city);
                             setOpenMenu(null);
                           }}
-                          className={`w-full px-3.5 py-2 text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                          className={`w-full px-3 py-2 text-xs rounded-xl flex items-center justify-between text-left transition-colors cursor-pointer ${
                             selected
-                              ? 'bg-teal-50/80 dark:bg-teal-950/50 text-teal-900 dark:text-teal-200 font-semibold'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 font-medium'
+                              ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-semibold border border-teal-200/60 dark:border-teal-800/60 shadow-2xs'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 font-medium'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -819,7 +819,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     role="menu"
                     aria-label="Options d'exportation"
                     onKeyDown={handleMenuKeyDown}
-                    className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200/90 dark:border-slate-700/90 py-1.5 z-50"
+                    className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-750 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
                   >
                     <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider flex items-center justify-between">
                       <span>Exporter</span>
@@ -828,13 +828,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                       </span>
                     </div>
 
-                    <div className="py-1">
+                    <div className="py-1 space-y-0.5">
                       <button
                         type="button"
                         role="menuitem"
                         disabled={exportCount === 0 || exporting}
                         onClick={triggerExportCSV}
-                        className="w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                        className="w-full px-3 py-2 text-left rounded-xl flex items-start gap-2.5 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                       >
                         <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                         <div>
@@ -853,7 +853,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                           role="menuitem"
                           disabled={exportCount === 0 || exporting}
                           onClick={triggerExportPDF}
-                          className="w-full px-3.5 py-2.5 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+                          className="w-full px-3 py-2 text-left rounded-xl flex items-start gap-2.5 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
                         >
                           <FileText className="w-4 h-4 text-rose-500 dark:text-rose-400 mt-0.5 shrink-0" />
                           <div>

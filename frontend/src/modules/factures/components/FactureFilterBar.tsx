@@ -8,8 +8,10 @@ import {
   FileText,
   List,
   LayoutGrid,
+  ArrowUpDown,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { SelectMenu } from '../../../components/ui';
 import { FactureStatusFilter, FactureSortOption, FactureViewMode } from '../types';
 
 interface FactureFilterBarProps {
@@ -206,20 +208,24 @@ export const FactureFilterBar: React.FC<FactureFilterBarProps> = ({
         <div className="flex items-center justify-between sm:justify-end gap-3">
           {/* Sélecteur de Tri */}
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+            <span className="text-slate-500 dark:text-slate-400 font-medium hidden md:inline text-xs">
               Trier par :
             </span>
-            <select
+            <SelectMenu
               value={sortBy}
-              onChange={(e) => onSortChange(e.target.value as FactureSortOption)}
-              className="py-1 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
-            >
-              <option value="date_desc">Date récente</option>
-              <option value="date_asc">Date ancienne</option>
-              <option value="montant_desc">Montant décroissant</option>
-              <option value="montant_asc">Montant croissant</option>
-              <option value="id_desc">Dernier ID créé</option>
-            </select>
+              onChange={(val) => onSortChange(val as FactureSortOption)}
+              options={[
+                { value: 'date_desc', label: 'Date récente' },
+                { value: 'date_asc', label: 'Date ancienne' },
+                { value: 'montant_desc', label: 'Montant décroissant' },
+                { value: 'montant_asc', label: 'Montant croissant' },
+                { value: 'id_desc', label: 'Dernier ID créé' },
+              ]}
+              placeholder="Trier par"
+              icon={<ArrowUpDown className="w-3.5 h-3.5" />}
+              menuWidth="w-52"
+              size="sm"
+            />
           </div>
 
           {/* Switch Tableau / Cartes */}
