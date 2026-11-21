@@ -10,6 +10,7 @@ import {
   Truck,
   Receipt,
   Sparkles,
+  LayoutDashboard,
   Command,
   ArrowRight,
   Activity,
@@ -75,6 +76,17 @@ export const GlobalCommandPalette: React.FC = () => {
 
     // 1. Navigation items
     const navCommands: PaletteCommand[] = [
+      {
+        id: 'nav-dashboard',
+        category: 'Navigation',
+        title: 'Aller au Tableau de Bord',
+        subtitle: 'Vue d’ensemble décisionnelle et statistiques globales des 4 microservices',
+        badge: 'Centralisé',
+        badgeClass: 'bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200/80 dark:border-teal-800/80',
+        icon: <LayoutDashboard className="w-4 h-4 text-teal-600 dark:text-teal-400" />,
+        shortcut: 'Alt 0',
+        onSelect: () => navigate('/dashboard'),
+      },
       {
         id: 'nav-fournisseurs',
         category: 'Navigation',

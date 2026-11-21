@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Truck,
   Receipt,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useApp } from '../../context/AppContext';
@@ -26,6 +27,13 @@ interface ModuleMetadata {
 }
 
 const MODULE_META: Record<string, ModuleMetadata> = {
+  '/dashboard': {
+    title: 'Tableau de Bord',
+    subtitle: 'Vue d’ensemble & Décisionnel',
+    owner: 'Direction Achats & Finances',
+    port: 'Multi-services (8081-8084)',
+    icon: LayoutDashboard,
+  },
   '/fournisseurs': {
     title: 'Fournisseurs',
     subtitle: 'Référentiel & Éligibilité',

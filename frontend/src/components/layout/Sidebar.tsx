@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
+  LayoutDashboard,
   Building2,
   ShoppingBag,
   Truck,
@@ -19,6 +20,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    to: '/dashboard',
+    label: 'Tableau de Bord',
+    icon: LayoutDashboard,
+  },
   {
     to: '/fournisseurs',
     label: 'Fournisseurs',
@@ -64,7 +70,7 @@ export const Sidebar: React.FC = () => {
         }`}
       >
         <NavLink
-          to="/fournisseurs"
+          to="/dashboard"
           onClick={handleNavClick}
           className="flex items-center space-x-3 group relative cursor-pointer"
           title={isCollapsed ? 'ProcuraFlow v1.0 — Plateforme Achats' : undefined}
