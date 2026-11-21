@@ -42,3 +42,19 @@ export type FactureSortOption =
   | 'montant_asc'
   | 'id_desc';
 export type FactureViewMode = 'table' | 'cards';
+
+export interface DossierFacturable {
+  commandeId: number;
+  fournisseurId: number;
+  fournisseurNom: string;
+  montantTotal: number;
+  statutCommande: string;
+  dateCommande?: string;
+  receptions: {
+    id: number;
+    statutReception: string;
+    dateReception: string;
+    nbUnites: number;
+  }[];
+}
+

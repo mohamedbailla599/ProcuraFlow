@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Receipt,
   Plus,
@@ -62,10 +63,34 @@ export const FacturesPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<FactureViewMode>('table');
 
   // Modals & Drawer
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCommandeId = searchParams.get('commandeId');
+
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [factureToEdit, setFactureToEdit] = useState<Facture | null>(null);
   const [selectedFactureForDrawer, setSelectedFactureForDrawer] = useState<Facture | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Auto-open modal if commandeId is present in URL
+  useEffect(() => {
+    if (urlCommandeId) {
+      const idNum = Number(urlCommandeId);
+      if (!isNaN(idNum) && idNum > 0) {
+        setFactureToEdit(null);
+        setIsModalOpen(true);
+      }
+    }
+  }, [urlCommandeId]);
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setFactureToEdit(null);
+    if (searchParams.get('commandeId')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('commandeId');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Confirm Modal state
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -481,12 +506,11 @@ export const FacturesPage: React.FC = () => {
       {/* Create / Edit Modal */}
       <FactureModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setFactureToEdit(null);
-        }}
+        onClose={handleCloseModal}
         onSubmit={handleSaveFacture}
         factureToEdit={factureToEdit}
+        existingFactures={factures}
+        initialCommandeId={urlCommandeId ? Number(urlCommandeId) : null}
       />
 
       {/* Invoice Details Drawer */}

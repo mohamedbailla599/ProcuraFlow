@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Receipt,
@@ -10,14 +10,27 @@ import {
   CheckCircle2,
   Sparkles,
   Hash,
+  SlidersHorizontal,
+  ChevronDown,
+  Info,
+  Layers,
 } from 'lucide-react';
-import { Facture, FactureFormData, StatutPaiement } from '../types';
+import { Facture, FactureFormData, StatutPaiement, DossierFacturable } from '../types';
+import { getAllCommandes } from '../../commandes/api';
+import { getAll as getAllReceptions } from '../../receptions/api';
+import { fournisseurApi } from '../../fournisseurs/api/fournisseurApi';
+import { Commande } from '../../commandes/types';
+import { Reception } from '../../receptions/types';
+import { Fournisseur } from '../../fournisseurs/types/fournisseur';
+import { formatMAD, formatDate } from '../utils';
 
 interface FactureModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: FactureFormData) => Promise<void>;
   factureToEdit?: Facture | null;
+  existingFactures?: Facture[];
+  initialCommandeId?: number | null;
 }
 
 export const FactureModal: React.FC<FactureModalProps> = ({
@@ -25,7 +38,10 @@ export const FactureModal: React.FC<FactureModalProps> = ({
   onClose,
   onSubmit,
   factureToEdit,
+  existingFactures = [],
+  initialCommandeId = null,
 }) => {
+  // Form fields
   const [commandeId, setCommandeId] = useState<string>('');
   const [receptionId, setReceptionId] = useState<string>('');
   const [montantFacture, setMontantFacture] = useState<string>('');
@@ -35,11 +51,169 @@ export const FactureModal: React.FC<FactureModalProps> = ({
   const [statutPaiement, setStatutPaiement] = useState<StatutPaiement>('NON_PAYEE');
   const [numeroFacture, setNumeroFacture] = useState<string>('');
 
+  // Mode: Guided auto-matching vs Manual override
+  const [isManualMode, setIsManualMode] = useState<boolean>(false);
+
+  // Cross-service data for real-time 3-way matching
+  const [commandesList, setCommandesList] = useState<Commande[]>([]);
+  const [receptionsList, setReceptionsList] = useState<Reception[]>([]);
+  const [fournisseursMap, setFournisseursMap] = useState<Record<number, string>>({});
+  const [loadingDossiers, setLoadingDossiers] = useState<boolean>(false);
+  const [dossiersError, setDossiersError] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const commandeInputRef = useRef<HTMLInputElement>(null);
   const isEditing = Boolean(factureToEdit);
+
+  // Load live cross-service data when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const fetchDossiersData = async () => {
+      try {
+        setLoadingDossiers(true);
+        setDossiersError(null);
+
+        const [cmdsResult, recsResult, fournsResult] = await Promise.allSettled([
+          getAllCommandes(),
+          getAllReceptions(),
+          fournisseurApi.getFournisseurs(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (cmdsResult.status === 'fulfilled' && Array.isArray(cmdsResult.value)) {
+          setCommandesList(cmdsResult.value);
+        } else {
+          setCommandesList([]);
+        }
+
+        if (recsResult.status === 'fulfilled' && Array.isArray(recsResult.value)) {
+          setReceptionsList(recsResult.value);
+        } else {
+          setReceptionsList([]);
+        }
+
+        if (fournsResult.status === 'fulfilled' && Array.isArray(fournsResult.value)) {
+          const map: Record<number, string> = {};
+          fournsResult.value.forEach((f: Fournisseur) => {
+            map[f.id] = f.nom;
+          });
+          setFournisseursMap(map);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setDossiersError('Erreur lors du chargement des commandes et réceptions en direct.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingDossiers(false);
+        }
+      }
+    };
+
+    fetchDossiersData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  // Compute eligible dossiers for real-time 3-way matching
+  // Rule: Commande in VALIDEE or LIVREE, not already invoiced, with at least one CONFORME reception
+  const dossiersFacturables = useMemo<DossierFacturable[]>(() => {
+    if (!commandesList.length) return [];
+
+    return commandesList
+      .filter((cmd) => {
+        // Backend requirement: STATUTS_FACTURABLES = ["VALIDEE", "LIVREE"]
+        const st = (cmd.statut || '').toUpperCase();
+        const isStatutEligible = st === 'VALIDEE' || st === 'LIVREE';
+        if (!isStatutEligible) return false;
+
+        // Prevent duplicate invoice for the same order (unless it's the one we are currently editing or deep-linking)
+        const alreadyInvoiced = existingFactures.some(
+          (f) =>
+            Number(f.commande_id) === Number(cmd.id) &&
+            f.statut_paiement !== 'ANNULEE' &&
+            (!factureToEdit || f.id !== factureToEdit.id)
+        );
+        if (alreadyInvoiced && Number(cmd.id) !== Number(initialCommandeId)) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((cmd) => {
+        // Find matching CONFORME receptions
+        const conformReceptions = receptionsList
+          .filter(
+            (r) =>
+              Number(r.commandeId) === Number(cmd.id) &&
+              (r.statutReception || 'CONFORME').toUpperCase() === 'CONFORME'
+          )
+          .map((r) => {
+            const nbUnites =
+              r.lignes?.reduce((sum, l) => sum + (l.quantiteRecue || 0), 0) || 0;
+            return {
+              id: r.id,
+              statutReception: r.statutReception || 'CONFORME',
+              dateReception: r.dateReception || '',
+              nbUnites,
+            };
+          });
+
+        const fournisseurNom =
+          fournisseursMap[cmd.fournisseurId] || `Fournisseur #${cmd.fournisseurId}`;
+
+        return {
+          commandeId: cmd.id,
+          fournisseurId: cmd.fournisseurId,
+          fournisseurNom,
+          montantTotal: cmd.montantTotal || 0,
+          statutCommande: cmd.statut,
+          dateCommande: cmd.dateCommande,
+          receptions: conformReceptions,
+        };
+      })
+      .filter((dossier) => dossier.receptions.length > 0); // Must have at least 1 conform reception
+  }, [commandesList, receptionsList, fournisseursMap, existingFactures, factureToEdit, initialCommandeId]);
+
+  // Selected dossier based on commandeId
+  const selectedDossier = useMemo(() => {
+    if (!commandeId) return null;
+    return dossiersFacturables.find((d) => d.commandeId === Number(commandeId)) || null;
+  }, [commandeId, dossiersFacturables]);
+
+  // Current selected reception object
+  const currentReception = useMemo(() => {
+    if (!selectedDossier || !receptionId) return null;
+    return selectedDossier.receptions.find((r) => r.id === Number(receptionId)) || null;
+  }, [selectedDossier, receptionId]);
+
+  // Handle dossier selection from guided dropdown
+  const handleSelectDossier = (cmdIdStr: string) => {
+    if (!cmdIdStr) {
+      setCommandeId('');
+      setReceptionId('');
+      setMontantFacture('');
+      return;
+    }
+
+    const dossier = dossiersFacturables.find((d) => d.commandeId === Number(cmdIdStr));
+    if (dossier) {
+      setCommandeId(String(dossier.commandeId));
+      // Auto-select first conform reception
+      const defaultRec = dossier.receptions[0];
+      setReceptionId(defaultRec ? String(defaultRec.id) : '');
+      // Auto-populate amount from PO
+      setMontantFacture(dossier.montantTotal.toFixed(2));
+      setErrorMessage(null);
+    }
+  };
 
   // Initialize form state
   useEffect(() => {
@@ -53,26 +227,32 @@ export const FactureModal: React.FC<FactureModalProps> = ({
       setDateFacture(parsedDate);
       setStatutPaiement(factureToEdit.statut_paiement || 'NON_PAYEE');
       setNumeroFacture(factureToEdit.numero_facture || '');
+      setIsManualMode(true); // Default to manual when editing existing invoice
     } else {
-      setCommandeId('');
+      setCommandeId(initialCommandeId ? String(initialCommandeId) : '');
       setReceptionId('');
       setMontantFacture('');
       setDateFacture(new Date().toISOString().split('T')[0]);
       setStatutPaiement('NON_PAYEE');
       setNumeroFacture('');
+      setIsManualMode(false);
     }
     setErrorMessage(null);
-  }, [factureToEdit, isOpen]);
+  }, [factureToEdit, initialCommandeId, isOpen]);
 
-  // Focus input when opened
+  // Auto-fill when initialCommandeId matches a loaded dossier
   useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        commandeInputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+    if (!factureToEdit && initialCommandeId && dossiersFacturables.length > 0) {
+      const target = dossiersFacturables.find((d) => d.commandeId === Number(initialCommandeId));
+      if (target) {
+        setCommandeId(String(target.commandeId));
+        if (target.receptions[0]) {
+          setReceptionId(String(target.receptions[0].id));
+        }
+        setMontantFacture(target.montantTotal.toFixed(2));
+      }
     }
-  }, [isOpen]);
+  }, [initialCommandeId, dossiersFacturables, factureToEdit]);
 
   // Escape key handler
   useEffect(() => {
@@ -135,7 +315,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden animate-scale-in"
+          className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden animate-scale-in"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
@@ -150,7 +330,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {isEditing
                     ? `Mise à jour de ${factureToEdit?.numero_facture || `#${factureToEdit?.id}`}`
-                    : 'Enregistrement et rapprochement Commande / Réception'}
+                    : 'Rapprochement 3-voies temps réel (Commande ↔ Réception ↔ Facture)'}
                 </p>
               </div>
             </div>
@@ -174,74 +354,250 @@ export const FactureModal: React.FC<FactureModalProps> = ({
               </div>
             )}
 
-            {/* Rapprochement section: Commande & Reception */}
-            <div className="space-y-3.5">
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Rapprochement 3-Voies (Obligatoire)
-              </p>
+            {/* Section Rapprochement 3-Voies */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-500" />
+                  Rapprochement 3-Voies (Obligatoire)
+                </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Commande ID */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      htmlFor="commande_id"
-                      className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      N° Commande <span className="text-rose-500">*</span>
-                    </label>
-                    {isCommandeValid && (
-                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center space-x-0.5 animate-scale-in">
-                        <CheckCircle2 className="w-3 h-3" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <ShoppingBag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                    <input
-                      ref={commandeInputRef}
-                      id="commande_id"
-                      type="number"
-                      min="1"
-                      required
-                      value={commandeId}
-                      onChange={(e) => setCommandeId(e.target.value)}
-                      placeholder="Ex: 101"
-                      className="w-full h-10 pl-10 pr-3 text-sm bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
-                    />
-                  </div>
-                </div>
-
-                {/* Reception ID */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      htmlFor="reception_id"
-                      className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-                    >
-                      N° Réception <span className="text-rose-500">*</span>
-                    </label>
-                    {isReceptionValid && (
-                      <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center space-x-0.5 animate-scale-in">
-                        <CheckCircle2 className="w-3 h-3" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <PackageCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                    <input
-                      id="reception_id"
-                      type="number"
-                      min="1"
-                      required
-                      value={receptionId}
-                      onChange={(e) => setReceptionId(e.target.value)}
-                      placeholder="Ex: 204"
-                      className="w-full h-10 pl-10 pr-3 text-sm bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
-                    />
-                  </div>
-                </div>
+                {/* Toggle Mode Manuel / Automatique */}
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setIsManualMode(!isManualMode)}
+                    className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <SlidersHorizontal className="w-3 h-3" />
+                    {isManualMode ? 'Mode Détection Intelligente' : 'Saisie Manuelle d’ID'}
+                  </button>
+                )}
               </div>
+
+              {/* Mode Automatique Guidé : Sélecteur de Dossier Facturable */}
+              {!isManualMode ? (
+                <div className="space-y-3">
+                  {loadingDossiers ? (
+                    <div className="flex items-center justify-center gap-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 text-xs text-slate-500">
+                      <div className="w-4 h-4 border-2 border-teal-500/30 border-t-teal-600 rounded-full animate-spin" />
+                      <span>Recherche des bons de commande & réceptions conformes...</span>
+                    </div>
+                  ) : dossiersFacturables.length === 0 ? (
+                    <div className="p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs space-y-2">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <span>
+                          Aucun bon de commande en attente de facturation automatique.
+                          Les commandes doivent être <strong>Validées</strong> ou <strong>Livrées</strong> avec une réception <strong>Conforme</strong>.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsManualMode(true)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 dark:text-amber-100 underline hover:no-underline cursor-pointer"
+                      >
+                        Basculer en saisie manuelle d'identifiants →
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Sélecteur de Dossier */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                          Sélectionner un dossier prêt à facturer <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <ShoppingBag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                          <select
+                            value={commandeId}
+                            onChange={(e) => handleSelectDossier(e.target.value)}
+                            className="select-custom w-full h-11 pl-10 pr-9 text-xs sm:text-sm font-semibold rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                          >
+                            <option value="">
+                              -- Choisissez un dossier ({dossiersFacturables.length} disponibles) --
+                            </option>
+                            {dossiersFacturables.map((d) => (
+                              <option key={d.commandeId} value={d.commandeId}>
+                                BC-{String(d.commandeId).padStart(4, '0')} • {d.fournisseurNom} • {formatMAD(d.montantTotal)} ({d.receptions.length} réception(s) conforme(s))
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Sélecteur de Réception si la commande en compte plusieurs */}
+                      {selectedDossier && selectedDossier.receptions.length > 1 && (
+                        <div className="animate-fade-in">
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                            Réception associée <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <PackageCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                            <select
+                              value={receptionId}
+                              onChange={(e) => setReceptionId(e.target.value)}
+                              className="select-custom w-full h-10 pl-10 pr-9 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                            >
+                              {selectedDossier.receptions.map((rec) => (
+                                <option key={rec.id} value={rec.id}>
+                                  Réception #{rec.id} • {rec.dateReception ? formatDate(rec.dateReception) : 'Date N/A'} • {rec.nbUnites} unité(s) conforme(s)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Visual 3-Way Match Verification Card */}
+                      {selectedDossier && (
+                        <div className="rounded-xl border border-teal-200/80 dark:border-teal-800/80 bg-teal-50/40 dark:bg-teal-950/20 p-3.5 space-y-3 animate-fade-in shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                              <span className="text-xs font-bold text-teal-900 dark:text-teal-200">
+                                Rapprochement 3-Voies en Temps Réel
+                              </span>
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Prêt pour Facturation
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {/* Commande */}
+                            <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                                <span className="flex items-center gap-1">
+                                  <ShoppingBag className="w-3 h-3 text-teal-500" /> Bon de Commande
+                                </span>
+                                <span className="font-mono text-slate-700 dark:text-slate-200">
+                                  BC-{String(selectedDossier.commandeId).padStart(4, '0')}
+                                </span>
+                              </div>
+                              <p className="font-bold text-slate-900 dark:text-white truncate">
+                                {selectedDossier.fournisseurNom}
+                              </p>
+                              <div className="flex items-center justify-between mt-1 text-[11px]">
+                                <span className="text-slate-500">
+                                  Statut : <span className="font-semibold text-emerald-600 dark:text-emerald-400">{selectedDossier.statutCommande}</span>
+                                </span>
+                                <span className="font-bold font-mono text-teal-600 dark:text-teal-400">
+                                  {formatMAD(selectedDossier.montantTotal)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Réception */}
+                            <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                                <span className="flex items-center gap-1">
+                                  <PackageCheck className="w-3 h-3 text-teal-500" /> Réception
+                                </span>
+                                <span className="font-mono text-slate-700 dark:text-slate-200">
+                                  #{receptionId || 'N/A'}
+                                </span>
+                              </div>
+                              <p className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Conforme aux spécifications
+                              </p>
+                              <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+                                <span>
+                                  {currentReception?.dateReception
+                                    ? formatDate(currentReception.dateReception)
+                                    : 'Réceptionnée'}
+                                </span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  {currentReception?.nbUnites ?? 0} unité(s)
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cohérence financière */}
+                          <div className="flex items-center justify-between pt-1 px-1 text-[11px] border-t border-teal-100 dark:border-teal-900/40">
+                            <span className="text-slate-500 dark:text-slate-400">Cohérence financière :</span>
+                            {Math.abs(Number(montantFacture) - selectedDossier.montantTotal) < 0.01 ? (
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Montant 100% aligné sur le BC
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" /> Ajustement manuel ({formatMAD(Number(montantFacture) || 0)} vs {formatMAD(selectedDossier.montantTotal)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                /* Mode Manuel (Override) */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-fade-in">
+                  {/* Commande ID */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label
+                        htmlFor="commande_id"
+                        className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                      >
+                        N° Commande <span className="text-rose-500">*</span>
+                      </label>
+                      {isCommandeValid && (
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center space-x-0.5 animate-scale-in">
+                          <CheckCircle2 className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <ShoppingBag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                      <input
+                        ref={commandeInputRef}
+                        id="commande_id"
+                        type="number"
+                        min="1"
+                        required
+                        value={commandeId}
+                        onChange={(e) => setCommandeId(e.target.value)}
+                        placeholder="Ex: 101"
+                        className="w-full h-10 pl-10 pr-3 text-sm bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reception ID */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label
+                        htmlFor="reception_id"
+                        className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                      >
+                        N° Réception <span className="text-rose-500">*</span>
+                      </label>
+                      {isReceptionValid && (
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center space-x-0.5 animate-scale-in">
+                          <CheckCircle2 className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <PackageCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                      <input
+                        id="reception_id"
+                        type="number"
+                        min="1"
+                        required
+                        value={receptionId}
+                        onChange={(e) => setReceptionId(e.target.value)}
+                        placeholder="Ex: 204"
+                        className="w-full h-10 pl-10 pr-3 text-sm bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Financial Details */}
@@ -332,7 +688,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                   </select>
                 </div>
 
-                {/* Numero Facture (Auto-generated or custom) */}
+                {/* Numero Facture */}
                 <div>
                   <label
                     htmlFor="numero_facture"
@@ -359,7 +715,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
             <div className="bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200/60 dark:border-teal-900/40 rounded-xl p-3 flex items-start space-x-2.5">
               <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-teal-900 dark:text-teal-300/90 leading-relaxed">
-                Le rapprochement à 3 voies vérifie la cohérence entre le bon de commande, la réception physique et le montant facturé pour autoriser le paiement.
+                Le rapprochement à 3 voies certifie la cohérence entre le bon de commande, la livraison physique conforme et la facture avant autorisation de règlement.
               </p>
             </div>
 
@@ -369,14 +725,14 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="h-9 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="h-9 px-4 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={loading || !isFormValid}
-                className="h-9 px-5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-all duration-150 flex items-center space-x-2"
+                className="h-9 px-5 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-all duration-150 flex items-center space-x-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -394,4 +750,3 @@ export const FactureModal: React.FC<FactureModalProps> = ({
     </div>
   );
 };
-

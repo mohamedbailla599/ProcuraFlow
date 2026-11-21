@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   PageHeader,
   Badge,
@@ -37,6 +38,7 @@ import {
   Printer,
   ArrowUpDown,
   ChevronDown,
+  Receipt,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -79,6 +81,7 @@ const formatStatutLabel = (st: string) => {
 const ITEMS_PER_PAGE = 8;
 
 export const CommandesPage: React.FC = () => {
+  const navigate = useNavigate();
   const { isSidebarCollapsed } = useApp();
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -806,6 +809,18 @@ export const CommandesPage: React.FC = () => {
                         {/* Actions : Boutons icônes avec magnifique effet de survol (hover) */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                            {/* Bouton Facturer (Rapprochement 3-voies) si LIVREE ou VALIDEE */}
+                            {(cmd.statut === 'LIVREE' || cmd.statut === 'VALIDEE') && (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/factures?commandeId=${cmd.id}`)}
+                                title="Établir la facture (Rapprochement 3-voies)"
+                                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-emerald-600 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 border border-slate-200/80 dark:border-slate-700/80 hover:border-emerald-300 dark:hover:border-emerald-700/80 shadow-2xs hover:shadow-xs hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                              >
+                                <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              </button>
+                            )}
+
                             {/* Bouton Détails : Icône Eye avec hover teal */}
                             <button
                               type="button"
@@ -1169,14 +1184,30 @@ export const CommandesPage: React.FC = () => {
         maxWidth="3xl"
         footer={
           <div className="w-full flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Printer className="w-4 h-4" />}
-              onClick={() => window.print()}
-            >
-              Imprimer le Bon
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Printer className="w-4 h-4" />}
+                onClick={() => window.print()}
+              >
+                Imprimer le Bon
+              </Button>
+              {selectedCommande && (selectedCommande.statut === 'LIVREE' || selectedCommande.statut === 'VALIDEE') && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Receipt className="w-4 h-4" />}
+                  onClick={() => {
+                    const cmdId = selectedCommande.id;
+                    setSelectedCommande(null);
+                    navigate(`/factures?commandeId=${cmdId}`);
+                  }}
+                >
+                  Établir Facture
+                </Button>
+              )}
+            </div>
             <Button variant="secondary" size="sm" onClick={() => setSelectedCommande(null)}>
               Fermer
             </Button>
