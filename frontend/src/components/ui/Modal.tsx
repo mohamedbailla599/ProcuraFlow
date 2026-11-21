@@ -69,12 +69,12 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="px-6 py-4.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="min-w-0 pr-4">
               {title && (
                 <h3
                   id="modal-title"
-                  className="text-base font-bold text-slate-900 dark:text-white tracking-tight"
+                  className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight"
                 >
                   {title}
                 </h3>
@@ -94,7 +94,7 @@ export const Modal: React.FC<ModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Fermer la boîte de dialogue"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -107,7 +107,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Optional Footer */}
         {footer && (
-          <div className="px-6 py-3.5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+          <div className="px-6 py-4 bg-slate-50/80 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
             {footer}
           </div>
         )}

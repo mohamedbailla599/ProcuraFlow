@@ -53,8 +53,30 @@ export const ReceptionDetailModal: React.FC<ReceptionDetailModalProps> = ({
       title={`Bordereau de Réception #${reception.id}`}
       description={`Contrôle d'entrée en stock pour le bon de commande #${reception.commandeId}`}
       maxWidth="3xl"
+      footer={
+        <div className="w-full flex items-center justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon={<Printer className="w-4 h-4" />}
+            onClick={handlePrint}
+          >
+            Imprimer le Bordereau
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onClose}
+          >
+            Fermer
+          </Button>
+        </div>
+      }
     >
-      <div className="space-y-6 text-sm text-slate-800 dark:text-slate-100">
+      <div className="space-y-5 text-sm text-slate-800 dark:text-slate-100">
         {/* Bandeau d'en-tête synthétique */}
         <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent border border-teal-200/80 dark:border-teal-900/60 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
@@ -211,28 +233,6 @@ export const ReceptionDetailModal: React.FC<ReceptionDetailModalProps> = ({
             <span>Aucune observation particulière enregistrée. Livraison réceptionnée sans réserve.</span>
           </div>
         )}
-
-        {/* Actions du Modal */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon={<Printer className="w-4 h-4" />}
-            onClick={handlePrint}
-          >
-            Imprimer le Bordereau
-          </Button>
-
-          <Button
-            type="button"
-            variant="primary"
-            size="md"
-            onClick={onClose}
-          >
-            Fermer
-          </Button>
-        </div>
       </div>
     </Modal>
   );

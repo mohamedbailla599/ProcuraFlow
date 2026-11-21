@@ -54,6 +54,28 @@ type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | '
 type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
 
 const WORKFLOW_STEPS = ['EN_ATTENTE', 'VALIDEE', 'EN_COURS', 'LIVREE'] as const;
+
+const WORKFLOW_STEP_CONFIG: Record<
+  (typeof WORKFLOW_STEPS)[number],
+  { label: string; sub: string }
+> = {
+  EN_ATTENTE: { label: 'En Attente', sub: 'Émission initiale' },
+  VALIDEE: { label: 'Validée', sub: 'Accord & signature' },
+  EN_COURS: { label: 'En Cours', sub: 'Expédition active' },
+  LIVREE: { label: 'Livrée', sub: 'Réception conforme' },
+};
+
+const formatStatutLabel = (st: string) => {
+  switch (st) {
+    case 'EN_ATTENTE': return 'En Attente';
+    case 'VALIDEE': return 'Validée';
+    case 'EN_COURS': return 'En Cours';
+    case 'LIVREE': return 'Livrée';
+    case 'ANNULEE': return 'Annulée';
+    default: return st;
+  }
+};
+
 const ITEMS_PER_PAGE = 8;
 
 export const CommandesPage: React.FC = () => {
@@ -1040,10 +1062,10 @@ export const CommandesPage: React.FC = () => {
             </div>
 
             <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              <div className="col-span-5">Désignation de l'article</div>
+              <div className="col-span-4">Désignation de l'article</div>
               <div className="col-span-2 text-center">Quantité</div>
               <div className="col-span-3 text-right">Prix Unitaire (MAD)</div>
-              <div className="col-span-1 text-right">Total</div>
+              <div className="col-span-2 text-right">Total</div>
               <div className="col-span-1"></div>
             </div>
 
@@ -1056,7 +1078,7 @@ export const CommandesPage: React.FC = () => {
                     key={index}
                     className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl shadow-2xs transition-all duration-200 hover:shadow-sm hover:border-teal-300/80 dark:hover:border-teal-800"
                   >
-                    <div className="sm:col-span-5">
+                    <div className="sm:col-span-4">
                       <input
                         type="text"
                         required
@@ -1103,7 +1125,7 @@ export const CommandesPage: React.FC = () => {
                         }`}
                       />
                     </div>
-                    <div className="sm:col-span-1 text-right text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                    <div className="sm:col-span-2 text-right text-xs font-extrabold text-slate-800 dark:text-slate-200">
                       {sousTotal.toLocaleString('fr-FR')} MAD
                     </div>
                     <div className="sm:col-span-1 text-right">
@@ -1155,143 +1177,222 @@ export const CommandesPage: React.FC = () => {
             >
               Imprimer le Bon
             </Button>
-            <Button variant="primary" size="sm" onClick={() => setSelectedCommande(null)}>
+            <Button variant="secondary" size="sm" onClick={() => setSelectedCommande(null)}>
               Fermer
             </Button>
           </div>
         }
       >
         {selectedCommande && (
-          <div className="space-y-6 pt-2 text-slate-800 dark:text-slate-100">
-            {/* Cycle de vie du bon de commande */}
+          <div className="space-y-5 text-slate-800 dark:text-slate-100">
+            {/* Cycle de vie du bon de commande (Stepper élégant) */}
             {selectedCommande.statut !== 'ANNULEE' ? (
-              <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  Avancement du cycle d'achat
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                    Progression du cycle d'achat
+                  </span>
+                  {(() => {
+                    const currentIdx = WORKFLOW_STEPS.indexOf(
+                      selectedCommande.statut as (typeof WORKFLOW_STEPS)[number]
+                    );
+                    return (
+                      <span className="text-[11px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/70 px-2.5 py-0.5 rounded-full border border-teal-200/60 dark:border-teal-800/60">
+                        Étape {currentIdx >= 0 ? currentIdx + 1 : 1} sur 4
+                      </span>
+                    );
+                  })()}
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+
+                <div className="grid grid-cols-4 gap-2 sm:gap-3">
                   {WORKFLOW_STEPS.map((step, idx) => {
                     const currentIdx = WORKFLOW_STEPS.indexOf(
                       selectedCommande.statut as (typeof WORKFLOW_STEPS)[number]
                     );
                     const isCompleted = idx <= currentIdx;
                     const isCurrent = idx === currentIdx;
+                    const isPassed = idx < currentIdx;
+                    const cfg = WORKFLOW_STEP_CONFIG[step];
+
                     return (
-                      <div key={step} className="flex flex-col gap-1.5">
-                        <div
-                          className={`h-2 rounded-full transition-all ${
-                            isCompleted
-                              ? 'bg-teal-600'
-                              : 'bg-slate-200 dark:bg-slate-700'
-                          }`}
-                        />
-                        <span
-                          className={`text-[11px] font-bold ${
-                            isCurrent
-                              ? 'text-teal-700 dark:text-teal-400'
-                              : isCompleted
-                              ? 'text-slate-700 dark:text-slate-300'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          {step}
-                        </span>
+                      <div key={step} className="flex flex-col gap-2">
+                        {/* Barre de progression avec transition fluide */}
+                        <div className="relative flex items-center">
+                          <div
+                            className={`h-2 w-full rounded-full transition-all duration-300 ${
+                              isCompleted
+                                ? 'bg-teal-600 dark:bg-teal-500 shadow-2xs'
+                                : 'bg-slate-200 dark:bg-slate-700'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Intitulé & description de l'étape */}
+                        <div>
+                          <div
+                            className={`text-xs font-bold transition-colors flex items-center gap-1 ${
+                              isCurrent
+                                ? 'text-teal-700 dark:text-teal-400'
+                                : isCompleted
+                                ? 'text-slate-800 dark:text-slate-200'
+                                : 'text-slate-400 dark:text-slate-500'
+                            }`}
+                          >
+                            {isPassed ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                            ) : isCurrent ? (
+                              <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse shrink-0" />
+                            ) : null}
+                            <span className="truncate">{cfg.label}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 hidden sm:block truncate mt-0.5">
+                            {cfg.sub}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
             ) : (
-              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-                Ce bon de commande a été annulé.
+              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>Ce bon de commande a été annulé dans le circuit d'achat.</span>
               </div>
             )}
 
-            {/* Fiches de Synthèse */}
+            {/* Fiches de Synthèse Équilibrées */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Fournisseur Attributaire
-                </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
-                  {getFournisseurLabel(selectedCommande.fournisseurId)}
-                </span>
-                <span className="text-xs text-slate-500">ID #{selectedCommande.fournisseurId}</span>
-              </div>
-              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Date d'Émission
-                </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
-                  {formatDate(selectedCommande.dateCommande)}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {selectedCommande.lignesCommande?.length || 0} référence(s)
-                </span>
-              </div>
-              <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Statut de Traitement
-                </span>
-                <div className="mt-1.5">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusStyle(
-                      selectedCommande.statut
-                    )}`}
-                  >
-                    ● {selectedCommande.statut}
+              {/* Fournisseur */}
+              <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-900/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 block">
+                    Fournisseur Attributaire
                   </span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
+                    {getFournisseurLabel(selectedCommande.fournisseurId)}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    ID #{selectedCommande.fournisseurId}
+                  </span>
+                </div>
+              </div>
+
+              {/* Date d'Émission */}
+              <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 block">
+                    Date d'Émission
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
+                    {formatDate(selectedCommande.dateCommande)}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    {selectedCommande.lignesCommande?.length || 0} référence(s)
+                  </span>
+                </div>
+              </div>
+
+              {/* Statut de Traitement */}
+              <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 block">
+                    Statut de Traitement
+                  </span>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${getStatusStyle(
+                        selectedCommande.statut
+                      )}`}
+                    >
+                      ● {formatStatutLabel(selectedCommande.statut)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Tableau des Lignes de Commande */}
-            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    <th className="py-3 px-4">#</th>
-                    <th className="py-3 px-4">Désignation de l'article</th>
-                    <th className="py-3 px-4 text-center">Quantité</th>
-                    <th className="py-3 px-4 text-right">Prix Unitaire</th>
-                    <th className="py-3 px-4 text-right">Sous-total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {selectedCommande.lignesCommande?.map((ligne, idx) => (
-                    <tr key={ligne.id || idx}>
-                      <td className="py-3 px-4 text-xs text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
-                        {ligne.designation}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold text-xs">
-                          {ligne.quantite}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-300">
-                        {formatMontant(ligne.prixUnitaire)}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-white">
-                        {formatMontant(ligne.quantite * ligne.prixUnitaire)}
-                      </td>
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" /> Nomenclature des Articles Commandés
+                </h4>
+                <span className="text-xs font-medium text-slate-400">
+                  {selectedCommande.lignesCommande?.length || 0} référence(s)
+                </span>
+              </div>
+
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3 px-4 text-center w-12">#</th>
+                      <th className="py-3 px-4">Désignation de l'article</th>
+                      <th className="py-3 px-4 text-center">Quantité</th>
+                      <th className="py-3 px-4 text-right">Prix Unitaire</th>
+                      <th className="py-3 px-4 text-right">Sous-total</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-teal-50/70 dark:bg-teal-950/40 border-t-2 border-teal-200 dark:border-teal-800">
-                    <td
-                      colSpan={4}
-                      className="py-3.5 px-4 text-right text-xs font-extrabold uppercase tracking-wider text-teal-900 dark:text-teal-300"
-                    >
-                      Montant Total TTC du Bon de Commande
-                    </td>
-                    <td className="py-3.5 px-4 text-right text-base font-extrabold text-teal-700 dark:text-teal-400">
-                      {formatMontant(selectedCommande.montantTotal)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {selectedCommande.lignesCommande?.map((ligne, idx) => (
+                      <tr key={ligne.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 text-xs text-slate-400 font-mono text-center">{idx + 1}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
+                          {ligne.designation}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-xs text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
+                            {ligne.quantite}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-xs text-slate-600 dark:text-slate-300">
+                          {formatMontant(ligne.prixUnitaire)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          {formatMontant(ligne.quantite * ligne.prixUnitaire)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Engagement Budgétaire Total (Bandeau de synthèse luxueux) */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent border border-teal-200/80 dark:border-teal-900/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-600/20 shrink-0">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 block">
+                    Engagement Budgétaire Total
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedCommande.lignesCommande?.reduce((acc, l) => acc + (l.quantite || 0), 0) || 0} unité(s) au total • Prix fermes TTC garantis
+                  </span>
+                </div>
+              </div>
+
+              <div className="sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-teal-200/60 dark:border-teal-800/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Montant Total TTC
+                </span>
+                <span className="text-xl sm:text-2xl font-extrabold text-teal-700 dark:text-teal-400 tracking-tight">
+                  {formatMontant(selectedCommande.montantTotal)}
+                </span>
+              </div>
             </div>
           </div>
         )}
