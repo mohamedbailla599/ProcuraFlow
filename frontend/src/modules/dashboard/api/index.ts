@@ -178,9 +178,10 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     ANNULEE: { label: 'Annulées', color: '#ef4444', badge: 'bg-rose-500' },
   };
 
+  const totalCommandesMontant = commandes.reduce((sum, c) => sum + Number(c.montantTotal || 0), 0);
   const statusDistribution: StatusDistributionItem[] = Object.entries(statusCounts).map(([st, val]) => {
     const config = STATUT_CONFIG[st] || { label: st, color: '#64748b', badge: 'bg-slate-500' };
-    const pct = budgetTotalEngage > 0 ? Math.round((val.montant / budgetTotalEngage) * 100) : 0;
+    const pct = totalCommandesMontant > 0 ? Math.round((val.montant / totalCommandesMontant) * 100) : 0;
     return {
       statut: st,
       label: config.label,
