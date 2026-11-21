@@ -386,9 +386,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       {/* Main Toolbar Row */}
       <div className="p-3 sm:px-4 sm:py-3 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2.5">
         {/* Left Cluster: Search + Status Segmented + Sort + Location */}
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-          {/* 1. Primary Search Input (full-width on narrow phones, fluid up to 220px at xl / 320px at 2xl) */}
-          <div className="group relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[150px] sm:max-w-[220px] 2xl:max-w-xs">
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 flex-1 min-w-0">
+          {/* 1. Primary Search Input (full-width on narrow phones, fluid up to 200px at lg / 260px at 2xl) */}
+          <div className="group relative basis-full sm:basis-auto sm:flex-1 sm:min-w-[130px] sm:max-w-[200px] 2xl:max-w-xs">
             <Search
               aria-hidden="true"
               className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 group-focus-within:text-teal-600 dark:group-focus-within:text-teal-400 transition-colors pointer-events-none"
@@ -777,17 +777,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 2xl:gap-2">
-            {/* Desktop/Tablet Utilities: Importer, Exporter Dropdown, Refresh */}
+            {/* Desktop/Tablet Utilities: Importer (Icon), Exporter Dropdown (Icon), Refresh (Icon) */}
             <div className="hidden md:flex items-center gap-1.5 2xl:gap-2">
               {onOpenImportModal && (
                 <button
                   type="button"
                   onClick={onOpenImportModal}
                   title="Importer des fournisseurs (CSV / Excel)"
-                  className={`${secondaryBtnBase} px-3 font-semibold`}
+                  aria-label="Importer des fournisseurs (CSV / Excel)"
+                  className="w-9 h-9 rounded-xl border border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 dark:hover:border-teal-700 hover:bg-teal-50/60 dark:hover:bg-teal-950/40 shadow-2xs hover:shadow-xs transition-all duration-200 flex items-center justify-center cursor-pointer select-none hover:scale-105 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                 >
-                  <Upload className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                  <span>Importer</span>
+                  <Upload className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-y-0.5" />
                 </button>
               )}
 
@@ -798,20 +798,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                   onClick={() => toggleMenu('export')}
                   aria-haspopup="menu"
                   aria-expanded={openMenu === 'export'}
-                  title="Exporter les données"
-                  className={`${secondaryBtnBase} px-3 font-semibold ${
+                  title="Exporter les données (CSV / PDF)"
+                  aria-label="Exporter les données (CSV / PDF)"
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-200 cursor-pointer select-none active:scale-95 group focus:outline-none focus:ring-2 focus:ring-teal-500/20 ${
                     openMenu === 'export'
-                      ? 'border-teal-300 dark:border-teal-700 bg-slate-50 dark:bg-slate-800'
-                      : ''
+                      ? 'border-teal-400 dark:border-teal-600 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 shadow-xs ring-2 ring-teal-500/20'
+                      : 'border-slate-200/90 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-700 hover:bg-teal-50/60 dark:hover:bg-teal-950/40 shadow-2xs hover:shadow-xs hover:scale-105'
                   }`}
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                  <span>Exporter</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 opacity-60 transition-transform duration-150 ${
-                      openMenu === 'export' ? 'rotate-180' : ''
-                    }`}
-                  />
+                  <Download className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5 text-slate-500 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400" />
                 </button>
 
                 {openMenu === 'export' && (
