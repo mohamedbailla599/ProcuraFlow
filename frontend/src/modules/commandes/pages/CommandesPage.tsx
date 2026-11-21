@@ -19,22 +19,22 @@ import {
   Eye,
   Search,
   RefreshCw,
+  Download,
   Package,
   ShoppingBag,
   Wallet,
   CheckCircle2,
   Clock,
-  ArrowUpDown,
   X,
   Building2,
   Calendar,
-  Hash,
   BarChart3,
   PieChart,
-  ChevronLeft,
-  ChevronRight,
   Edit,
   AlertCircle,
+  SlidersHorizontal,
+  Printer,
+  FileText,
 } from 'lucide-react';
 import {
   getAllCommandes,
@@ -45,13 +45,13 @@ import {
   deleteCommande,
 } from '../api';
 import { Commande, LigneCommande } from '../types';
-import { formatMontant, formatDate } from '../utils';
+import { formatMontant, formatDate, exportCommandesToCsv } from '../utils';
 
 type StatusFilter = 'ALL' | 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'ANNULEE';
 type SortOption = 'date-desc' | 'date-asc' | 'montant-desc' | 'montant-asc';
 
 const WORKFLOW_STEPS = ['EN_ATTENTE', 'VALIDEE', 'EN_COURS', 'LIVREE'] as const;
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 
 export const CommandesPage: React.FC = () => {
   const [commandes, setCommandes] = useState<Commande[]>([]);
@@ -122,7 +122,7 @@ export const CommandesPage: React.FC = () => {
   // Réinitialiser la page courante lorsqu'on filtre ou recherche
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, fournisseurFilter]);
+  }, [searchQuery, statusFilter, fournisseurFilter, sortBy]);
 
   const getFournisseurLabel = (id: number) => {
     const found = fournisseursList.find((f) => Number(f.id) === Number(id));
@@ -150,7 +150,7 @@ export const CommandesPage: React.FC = () => {
         if (statusFilter !== 'ALL' && cmd.statut !== statusFilter) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
-          const matchId = `#${cmd.id}`.includes(q) || String(cmd.id).includes(q);
+          const matchId = `#${cmd.id}`.includes(q) || String(cmd.id).includes(q) || `bc-${cmd.id}`.includes(q);
           const matchFournisseur =
             `fournisseur #${cmd.fournisseurId}`.includes(q) ||
             String(cmd.fournisseurId).includes(q) ||
@@ -208,7 +208,7 @@ export const CommandesPage: React.FC = () => {
         montant,
       }))
       .sort((a, b) => b.montant - a.montant)
-      .slice(0, 3);
+      .slice(0, 4);
 
     return { counts, topFournisseurs };
   }, [commandes, fournisseursList]);
@@ -331,7 +331,7 @@ export const CommandesPage: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm(`Supprimer définitivement la commande #${id} ?`)) return;
+    if (!window.confirm(`Supprimer définitivement la commande #BC-${String(id).padStart(4, '0')} ?`)) return;
     try {
       await deleteCommande(id);
       if (selectedCommande && selectedCommande.id === id) {
@@ -353,17 +353,18 @@ export const CommandesPage: React.FC = () => {
     }
   };
 
-  const getStatutBadge = (statut: string) => {
+  const getStatusStyle = (statut: string) => {
     switch (statut) {
       case 'VALIDEE':
       case 'LIVREE':
-        return <Badge variant="success" dot size="sm">{statut}</Badge>;
-      case 'ANNULEE':
-        return <Badge variant="danger" dot size="sm">{statut}</Badge>;
+        return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/70 focus:ring-emerald-500';
       case 'EN_COURS':
-        return <Badge variant="info" dot size="sm">{statut}</Badge>;
+        return 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/70 focus:ring-blue-500';
+      case 'ANNULEE':
+        return 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-800/70 focus:ring-rose-500';
+      case 'EN_ATTENTE':
       default:
-        return <Badge variant="warning" dot size="sm">{statut}</Badge>;
+        return 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/70 focus:ring-amber-500';
     }
   };
 
@@ -377,12 +378,13 @@ export const CommandesPage: React.FC = () => {
 
   return (
     <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pt-2 sm:pt-4 pb-8 sm:pb-10 space-y-6">
+      {/* En-tête de page moderne */}
       <PageHeader
         badge={<Badge variant="teal" dot size="sm">Service Commandes (:8082)</Badge>}
-        title="Gestion des Commandes"
-        description="Créez, suivez et gérez les bons de commande et leurs lignes d'achat."
+        title="Gestion des Bons de Commande"
+        description="Créez, pilotez le cycle d'achat et gérez les lignes de commande auprès des fournisseurs agréés."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="md"
@@ -390,6 +392,15 @@ export const CommandesPage: React.FC = () => {
               onClick={loadCommandes}
             >
               Actualiser
+            </Button>
+            <Button
+              variant="outline"
+              size="md"
+              icon={<Download className="w-4 h-4" />}
+              onClick={() => exportCommandesToCsv(commandes)}
+              disabled={commandes.length === 0}
+            >
+              Exporter CSV
             </Button>
             <Button
               variant="primary"
@@ -403,30 +414,41 @@ export const CommandesPage: React.FC = () => {
         }
       />
 
-      {/* KPI Stats */}
+      {/* Grille de 4 Cartes KPI Interactives */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* KPI 1 : Total Commandes */}
         <button
           type="button"
           onClick={() => setStatusFilter('ALL')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'ALL' ? 'border-teal-500 ring-2 ring-teal-500/20' : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'ALL'
+              ? 'border-teal-500 ring-2 ring-teal-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Commandes</span>
-            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 flex items-center justify-center text-teal-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Total Commandes
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/60 flex items-center justify-center text-teal-600 dark:text-teal-400">
               <ShoppingBag className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.total}</span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {kpiStats.total}
+            </span>
+            <span className="text-xs font-semibold text-slate-400">bons d'achat</span>
           </div>
         </button>
 
+        {/* KPI 2 : Budget Engagé */}
         <div className="p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Budget Engagé</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Budget Engagé
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
@@ -437,161 +459,342 @@ export const CommandesPage: React.FC = () => {
           </div>
         </div>
 
+        {/* KPI 3 : Validées / Exécution */}
         <button
           type="button"
           onClick={() => setStatusFilter('VALIDEE')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'VALIDEE' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'VALIDEE'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Validées / Exécution</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Validées / Exécution
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{kpiStats.valideesOuLivrees}</span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              {kpiStats.valideesOuLivrees}
+            </span>
+            <span className="text-xs font-semibold text-slate-400">en cours de livraison</span>
           </div>
         </button>
 
+        {/* KPI 4 : En Attente */}
         <button
           type="button"
           onClick={() => setStatusFilter('EN_ATTENTE')}
           className={`text-left p-5 rounded-2xl border transition-all bg-white dark:bg-slate-900 shadow-2xs hover:shadow-md cursor-pointer ${
-            statusFilter === 'EN_ATTENTE' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200/90 dark:border-slate-800'
+            statusFilter === 'EN_ATTENTE'
+              ? 'border-amber-500 ring-2 ring-amber-500/20'
+              : 'border-slate-200/90 dark:border-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">En Attente</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              En Attente
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">{kpiStats.enAttente}</span>
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+              {kpiStats.enAttente}
+            </span>
+            <span className="text-xs font-semibold text-slate-400">à valider</span>
           </div>
         </button>
       </div>
 
-      {/* Barre d'outils & Filtres */}
+      {/* Barre d'Outils, Recherche & Filtres */}
       <Card>
         <CardContent className="pt-4 space-y-4">
           <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+            {/* Recherche globale */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Rechercher par #ID commande, fournisseur ou article..."
+                placeholder="Rechercher par #ID, BC-000x, fournisseur ou article..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full pl-10 pr-9 py-2 text-sm border rounded-xl bg-slate-50/60 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
+            {/* Filtre par Fournisseur & Tri */}
             <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
-              <input
-                type="number"
-                min={1}
-                placeholder="ID Fournisseur API..."
-                value={fournisseurFilter}
-                onChange={(e) => setFournisseurFilter(e.target.value)}
-                className="w-44 px-3 py-2 text-sm border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-              <Button variant="secondary" size="md" onClick={loadCommandes}>
-                Filtrer API
-              </Button>
+              <div className="relative">
+                <select
+                  value={fournisseurFilter}
+                  onChange={(e) => {
+                    setFournisseurFilter(e.target.value);
+                  }}
+                  className="w-48 px-3 py-2 text-xs font-semibold border rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                >
+                  <option value="">Tous les fournisseurs</option>
+                  {fournisseursList.map((f: any) => (
+                    <option key={f.id} value={f.id}>
+                      #{f.id} — {f.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {fournisseurFilter && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={loadCommandes}
+                >
+                  Filtrer API
+                </Button>
+              )}
+
+              {/* Sélecteur de Tri */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700"
+                className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
               >
                 <option value="date-desc">Plus récentes</option>
                 <option value="date-asc">Plus anciennes</option>
                 <option value="montant-desc">Montant décroissant</option>
                 <option value="montant-asc">Montant croissant</option>
               </select>
+
               {hasActiveFilters && (
-                <Button variant="ghost" size="md" onClick={resetAllFilters}>
-                  Réinitialiser
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetAllFilters}
+                  icon={<X className="w-3.5 h-3.5" />}
+                >
+                  Effacer
                 </Button>
               )}
             </div>
           </div>
+
+          {/* Onglets Filtres par Statut de Commande */}
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-3">
+            <span className="text-xs font-semibold text-slate-400 mr-2 flex items-center gap-1">
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Statut :
+            </span>
+            {[
+              { id: 'ALL', label: 'Toutes', count: chartStats.counts.EN_ATTENTE + chartStats.counts.VALIDEE + chartStats.counts.EN_COURS + chartStats.counts.LIVREE + chartStats.counts.ANNULEE },
+              { id: 'EN_ATTENTE', label: 'En Attente', count: chartStats.counts.EN_ATTENTE },
+              { id: 'VALIDEE', label: 'Validées', count: chartStats.counts.VALIDEE },
+              { id: 'EN_COURS', label: 'En Cours', count: chartStats.counts.EN_COURS },
+              { id: 'LIVREE', label: 'Livrées', count: chartStats.counts.LIVREE },
+              { id: 'ANNULEE', label: 'Annulées', count: chartStats.counts.ANNULEE },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStatusFilter(tab.id as StatusFilter)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  statusFilter === tab.id
+                    ? 'bg-teal-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Tableau des commandes */}
+      {/* Tableau des Bons de Commande */}
       <Card>
         <CardHeader>
-          <CardTitle>Bons de commande ({filteredCommandes.length})</CardTitle>
-          <CardDescription>Données en temps réel depuis le backend Spring Boot (:8082)</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Bons de Commande ({filteredCommandes.length})</CardTitle>
+              <CardDescription>
+                Synchronisation en direct avec le microservice Spring Boot (:8082)
+              </CardDescription>
+            </div>
+            {hasActiveFilters && (
+              <Badge variant="teal" size="xs">
+                Filtre actif ({filteredCommandes.length} / {commandes.length})
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
-            <LoadingState message="Chargement des commandes..." />
+            <div className="py-16">
+              <LoadingState message="Chargement des commandes en cours..." />
+            </div>
           ) : error ? (
-            <ErrorState message={error} onRetry={loadCommandes} />
+            <div className="p-4">
+              <ErrorState message={error} onRetry={loadCommandes} />
+            </div>
           ) : filteredCommandes.length === 0 ? (
-            <EmptyState title="Aucune commande trouvée" />
+            <div className="py-12">
+              <EmptyState
+                icon={<ShoppingBag className="w-10 h-10 text-teal-600" />}
+                title={
+                  hasActiveFilters
+                    ? 'Aucune commande ne correspond à vos filtres'
+                    : 'Aucun bon de commande enregistré'
+                }
+                description={
+                  hasActiveFilters
+                    ? 'Essayez de réinitialiser la recherche ou le filtre de fournisseur.'
+                    : 'Créez votre première commande d’achat en cliquant sur "Nouvelle Commande".'
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button variant="outline" size="sm" onClick={resetAllFilters}>
+                      Réinitialiser les filtres
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Plus className="w-4 h-4" />}
+                      onClick={handleOpenCreate}
+                    >
+                      Nouvelle Commande
+                    </Button>
+                  )
+                }
+              />
+            </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-3.5 px-4">Réf. BC</th>
+                    <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 whitespace-nowrap">Réf. BC</th>
                       <th className="py-3.5 px-4">Fournisseur</th>
-                      <th className="py-3.5 px-4">Date Émission</th>
-                      <th className="py-3.5 px-4">Articles</th>
-                      <th className="py-3.5 px-4">Montant Total</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Date Émission</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Articles</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap">Montant Total</th>
                       <th className="py-3.5 px-4">Statut</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
+                      <th className="py-3.5 px-4 text-right whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
                     {paginatedCommandes.map((cmd) => (
-                      <tr key={cmd.id} className="hover:bg-teal-50/30 dark:hover:bg-slate-800/50">
-                        <td className="py-3.5 px-4 font-bold">BC-{String(cmd.id).padStart(4, '0')}</td>
-                        <td className="py-3.5 px-4 font-semibold">{getFournisseurLabel(cmd.fournisseurId)}</td>
-                        <td className="py-3.5 px-4 text-xs text-slate-500">{formatDate(cmd.dateCommande)}</td>
-                        <td className="py-3.5 px-4">{cmd.lignesCommande?.length || 0} ligne(s)</td>
-                        <td className="py-3.5 px-4 font-extrabold text-teal-600">{formatMontant(cmd.montantTotal)}</td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            {getStatutBadge(cmd.statut)}
-                            <select
-                              value={cmd.statut}
-                              onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
-                              className="text-xs border rounded px-1.5 py-0.5 bg-transparent dark:border-slate-700"
-                            >
-                              <option value="EN_ATTENTE">EN_ATTENTE</option>
-                              <option value="VALIDEE">VALIDEE</option>
-                              <option value="EN_COURS">EN_COURS</option>
-                              <option value="LIVREE">LIVREE</option>
-                              <option value="ANNULEE">ANNULEE</option>
-                            </select>
+                      <tr
+                        key={cmd.id}
+                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        {/* Réf. BC : Garanti sans retour à la ligne */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
+                              #{cmd.id}
+                            </span>
+                            <span className="font-extrabold text-slate-900 dark:text-white font-mono text-xs">
+                              BC-{String(cmd.id).padStart(4, '0')}
+                            </span>
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 text-right space-x-1.5">
-                          <Button variant="outline" size="xs" icon={<Eye className="w-3.5 h-3.5" />} onClick={() => setSelectedCommande(cmd)}>
-                            Détails
-                          </Button>
-                          <Button variant="secondary" size="xs" icon={<Edit className="w-3.5 h-3.5" />} onClick={() => handleOpenEdit(cmd)}>
-                            Modifier
-                          </Button>
-                          <Button variant="danger" size="xs" icon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => handleDelete(cmd.id)}>
-                            Supprimer
-                          </Button>
+
+                        {/* Fournisseur */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-900 dark:text-white text-sm">
+                              {getFournisseurLabel(cmd.fournisseurId)}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Réf. #{cmd.fournisseurId}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Date Émission avec Icône */}
+                        <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            {formatDate(cmd.dateCommande)}
+                          </span>
+                        </td>
+
+                        {/* Nombre de lignes */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            <Package className="w-3 h-3 mr-1 text-teal-600" />
+                            {cmd.lignesCommande?.length || 0} ligne(s)
+                          </span>
+                        </td>
+
+                        {/* Montant Total */}
+                        <td className="py-3.5 px-4 font-extrabold text-teal-600 dark:text-teal-400 whitespace-nowrap text-sm">
+                          {formatMontant(cmd.montantTotal)}
+                        </td>
+
+                        {/* Sélecteur de Statut Unifié & Élégant */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <select
+                            value={cmd.statut}
+                            onChange={(e) => handleStatutChange(cmd.id, e.target.value)}
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 transition-all ${getStatusStyle(
+                              cmd.statut
+                            )}`}
+                            title="Modifier le statut d'avancement de la commande"
+                          >
+                            <option value="EN_ATTENTE">● En Attente</option>
+                            <option value="VALIDEE">● Validée</option>
+                            <option value="EN_COURS">● En Cours</option>
+                            <option value="LIVREE">● Livrée</option>
+                            <option value="ANNULEE">● Annulée</option>
+                          </select>
+                        </td>
+
+                        {/* Actions : Compactes sur une seule ligne */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              icon={<Eye className="w-3.5 h-3.5" />}
+                              onClick={() => setSelectedCommande(cmd)}
+                              title="Consulter le dossier d'achat"
+                            >
+                              Détails
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="xs"
+                              icon={<Edit className="w-3.5 h-3.5" />}
+                              onClick={() => handleOpenEdit(cmd)}
+                              title="Modifier les lignes de commande"
+                            >
+                              Modifier
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:border-rose-300"
+                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              onClick={() => handleDelete(cmd.id)}
+                              title="Supprimer la commande"
+                            >
+                              Supprimer
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -599,65 +802,121 @@ export const CommandesPage: React.FC = () => {
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-                <span>Page {currentPage} sur {totalPages}</span>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="xs" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
-                    Précédent
-                  </Button>
-                  <Button variant="outline" size="xs" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>
-                    Suivant
-                  </Button>
+              {/* Pagination & Compteur */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                <div>
+                  Affichage de{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                  </span>{' '}
+                  à{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {Math.min(currentPage * ITEMS_PER_PAGE, filteredCommandes.length)}
+                  </span>{' '}
+                  sur{' '}
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {filteredCommandes.length}
+                  </span>{' '}
+                  commande(s)
                 </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                    >
+                      Précédent
+                    </Button>
+                    <span className="px-2 font-medium">
+                      Page {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                    >
+                      Suivant
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Graphiques Statistiques en bas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
+      {/* Graphiques & Tableaux d'Analyse en bas de page */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+        {/* Répartition par Statut */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <PieChart className="w-4 h-4 text-teal-600" /> Répartition par Statut
+            <CardTitle className="flex items-center gap-2 text-sm font-bold">
+              <PieChart className="w-4 h-4 text-teal-600" /> Répartition du Pipeline d'Achats
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3.5">
             {[
               { label: 'En Attente', count: chartStats.counts.EN_ATTENTE, color: 'bg-amber-500' },
               { label: 'Validées', count: chartStats.counts.VALIDEE, color: 'bg-emerald-500' },
               { label: 'En Cours', count: chartStats.counts.EN_COURS, color: 'bg-blue-500' },
               { label: 'Livrées', count: chartStats.counts.LIVREE, color: 'bg-teal-600' },
               { label: 'Annulées', count: chartStats.counts.ANNULEE, color: 'bg-rose-500' },
-            ].map((item) => (
-              <div key={item.label} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span>{item.label}</span>
-                  <span className="font-semibold">{item.count}</span>
+            ].map((item) => {
+              const pct = (item.count / (commandes.length || 1)) * 100;
+              return (
+                <div key={item.label} className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-slate-600 dark:text-slate-300">{item.label}</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white">
+                      {item.count} ({Math.round(pct)}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${item.color} rounded-full transition-all duration-300`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${item.color}`} style={{ width: `${(item.count / (commandes.length || 1)) * 100}%` }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
+        {/* Top Fournisseurs par Volume Engagé */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BarChart3 className="w-4 h-4 text-teal-600" /> Top Fournisseurs
+            <CardTitle className="flex items-center gap-2 text-sm font-bold">
+              <BarChart3 className="w-4 h-4 text-teal-600" /> Fournisseurs les Plus Sollicités
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {chartStats.topFournisseurs.map((f, idx) => (
-              <div key={f.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 flex justify-between items-center">
-                <span className="font-bold text-sm">#{idx + 1} {f.nom}</span>
-                <span className="font-extrabold text-teal-600">{formatMontant(f.montant)}</span>
-              </div>
-            ))}
+          <CardContent className="space-y-2.5">
+            {chartStats.topFournisseurs.length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center">Aucune commande validée pour le moment.</p>
+            ) : (
+              chartStats.topFournisseurs.map((f, idx) => (
+                <div
+                  key={f.id}
+                  className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/60 dark:border-slate-800 flex justify-between items-center"
+                >
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-xs shrink-0">
+                      #{idx + 1}
+                    </span>
+                    <span className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                      {f.nom}
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-teal-600 dark:text-teal-400 text-xs shrink-0 ml-2">
+                    {formatMontant(f.montant)}
+                  </span>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -666,18 +925,18 @@ export const CommandesPage: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingId ? `Modifier la Commande #BC-${String(editingId).padStart(4, '0')}` : 'Nouvelle Commande'}
-        description="Sélectionnez un fournisseur ou saisissez son identifiant et configurez les lignes d'achat."
+        title={editingId ? `Modifier la Commande #BC-${String(editingId).padStart(4, '0')}` : 'Nouveau Bon de Commande'}
+        description="Configurez le fournisseur attributaire et les lignes d'achat associées."
         maxWidth="3xl"
         footer={
-          <>
+          <div className="flex items-center justify-end gap-2 w-full">
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Annuler
             </Button>
             <Button variant="primary" loading={submitting} onClick={handleSubmit}>
               {editingId ? 'Mettre à jour la commande' : 'Enregistrer la commande'}
             </Button>
-          </>
+          </div>
         }
       >
         <form
@@ -686,7 +945,7 @@ export const CommandesPage: React.FC = () => {
         >
           {formError && (
             <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-pulse">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{formError}</span>
             </div>
           )}
@@ -735,7 +994,7 @@ export const CommandesPage: React.FC = () => {
             </div>
             <p className="text-[11px] text-slate-400 italic flex items-center gap-1">
               <Building2 className="w-3 h-3 text-teal-600" />
-              Connecté au référentiel Fournisseurs (:8081).
+              Connecté en temps réel au référentiel Fournisseurs (:8081).
             </p>
           </div>
 
@@ -744,15 +1003,15 @@ export const CommandesPage: React.FC = () => {
             <div className="flex justify-between items-center">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Lignes de commande
+                  Lignes d'achat
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Ajoutez les articles composant ce bon de commande (prix entiers strictement positifs).
+                  Désignation, quantité et prix unitaire des articles.
                 </p>
               </div>
               <Button
                 type="button"
-                variant="teal-subtle"
+                variant="secondary"
                 size="xs"
                 icon={<Plus className="w-3.5 h-3.5" />}
                 onClick={handleAddLigne}
@@ -833,7 +1092,7 @@ export const CommandesPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveLigne(index)}
-                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-150"
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-150 cursor-pointer"
                           title="Supprimer la ligne"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -845,7 +1104,7 @@ export const CommandesPage: React.FC = () => {
               })}
             </div>
 
-            {/* Montant Total Estimé en entier strict */}
+            {/* Montant Total Estimé */}
             <div className="flex justify-between items-center bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/80 px-4 py-3.5 rounded-xl mt-4 transition-all duration-200">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300">
                 Montant Total Estimé
@@ -858,7 +1117,7 @@ export const CommandesPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Modal Détails */}
+      {/* Modal Détails & Dossier d'Achat */}
       <Modal
         isOpen={!!selectedCommande}
         onClose={() => setSelectedCommande(null)}
@@ -868,7 +1127,15 @@ export const CommandesPage: React.FC = () => {
         }`}
         maxWidth="3xl"
         footer={
-          <div className="w-full flex justify-end">
+          <div className="w-full flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Printer className="w-4 h-4" />}
+              onClick={() => window.print()}
+            >
+              Imprimer le Bon
+            </Button>
             <Button variant="primary" size="sm" onClick={() => setSelectedCommande(null)}>
               Fermer
             </Button>
@@ -876,11 +1143,12 @@ export const CommandesPage: React.FC = () => {
         }
       >
         {selectedCommande && (
-          <div className="space-y-6 pt-2">
+          <div className="space-y-6 pt-2 text-slate-800 dark:text-slate-100">
+            {/* Cycle de vie du bon de commande */}
             {selectedCommande.statut !== 'ANNULEE' ? (
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  Avancement du cycle de vie
+                  Avancement du cycle d'achat
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {WORKFLOW_STEPS.map((step, idx) => {
@@ -920,36 +1188,46 @@ export const CommandesPage: React.FC = () => {
               </div>
             )}
 
+            {/* Fiches de Synthèse */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Fournisseur
+                  Fournisseur Attributaire
                 </span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
+                <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block truncate">
                   {getFournisseurLabel(selectedCommande.fournisseurId)}
                 </span>
                 <span className="text-xs text-slate-500">ID #{selectedCommande.fournisseurId}</span>
               </div>
               <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Date de création
+                  Date d'Émission
                 </span>
                 <span className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 block">
                   {formatDate(selectedCommande.dateCommande)}
                 </span>
                 <span className="text-xs text-slate-500">
-                  {selectedCommande.lignesCommande?.length || 0} article(s)
+                  {selectedCommande.lignesCommande?.length || 0} référence(s)
                 </span>
               </div>
               <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Statut Actuel
+                  Statut de Traitement
                 </span>
-                <div className="mt-1">{getStatutBadge(selectedCommande.statut)}</div>
+                <div className="mt-1.5">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusStyle(
+                      selectedCommande.statut
+                    )}`}
+                  >
+                    ● {selectedCommande.statut}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            {/* Tableau des Lignes de Commande */}
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold uppercase tracking-wider text-slate-500">
