@@ -237,13 +237,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   const activities: RecentActivityItem[] = [];
 
   // Commandes
-  commandes.slice(0, 5).forEach((c) => {
+  commandes.forEach((c) => {
     const f = fournisseurs.find((item) => Number(item.id) === Number(c.fournisseurId));
     activities.push({
       id: `cmd-${c.id}`,
       type: 'COMMANDE',
-      title: `Commande #${c.id} (${c.statut})`,
-      subtitle: `${f?.nom || 'Fournisseur #' + c.fournisseurId} · ${c.lignesCommande?.length || 0} article(s)`,
+      title: `Bon de Commande #BC-${String(c.id).padStart(4, '0')}`,
+      subtitle: `${f?.nom || 'Fournisseur #' + c.fournisseurId} · ${c.lignesCommande?.length || 0} référence(s)`,
       date: c.dateCommande || new Date().toISOString(),
       montant: c.montantTotal,
       badgeText: c.statut,
@@ -253,38 +253,40 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   });
 
   // Factures
-  factures.slice(0, 5).forEach((f) => {
+  factures.forEach((f) => {
+    const isPayee = (f.statut_paiement || '').toUpperCase() === 'PAYEE';
     activities.push({
       id: `fac-${f.id}`,
-      type: f.statut_paiement === 'PAYEE' ? 'PAIEMENT' : 'FACTURE',
-      title: `Facture ${f.numero_facture || '#' + f.id} (${f.statut_paiement || 'NON_PAYEE'})`,
-      subtitle: `Rattachée à Commande #${f.commande_id} & BL #${f.reception_id}`,
+      type: isPayee ? 'PAIEMENT' : 'FACTURE',
+      title: `Facture ${f.numero_facture || '#' + f.id}`,
+      subtitle: `Rapprochement 3-voies · Commande #${f.commande_id} & BL #${f.reception_id}`,
       date: f.date_facture || f.created_at || new Date().toISOString(),
       montant: f.montant_total || f.montant_facture,
-      badgeText: f.statut_paiement === 'PAYEE' ? 'PAYÉE' : 'NON PAYÉE',
-      badgeVariant: f.statut_paiement === 'PAYEE' ? 'emerald' : 'purple',
+      badgeText: isPayee ? 'PAYÉE' : 'NON PAYÉE',
+      badgeVariant: isPayee ? 'emerald' : 'purple',
       linkTo: '/factures',
     });
   });
 
   // Réceptions
-  receptions.slice(0, 4).forEach((r) => {
+  receptions.forEach((r) => {
     const unites = (r.lignes || []).reduce((sum, l) => sum + Number(l.quantiteRecue || 0), 0);
+    const isConf = (r.statutReception || 'CONFORME').toUpperCase() === 'CONFORME';
     activities.push({
       id: `rec-${r.id}`,
       type: 'RECEPTION',
-      title: `Réception BL-${String(r.id).padStart(4, '0')}`,
-      subtitle: `Commande #${r.commandeId} · ${unites} unité(s) contrôlée(s)`,
+      title: `Bon de Réception #BL-${String(r.id).padStart(4, '0')}`,
+      subtitle: `Commande #${r.commandeId} · ${unites} unité(s) réceptionnée(s)`,
       date: r.dateReception || new Date().toISOString(),
-      badgeText: r.statutReception || 'CONFORME',
-      badgeVariant: 'teal',
+      badgeText: isConf ? 'CONFORME' : 'AVEC RÉSERVES',
+      badgeVariant: isConf ? 'emerald' : 'amber',
       linkTo: '/receptions',
     });
   });
 
   // Trier les activités par date décroissante
   activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const recentActivities = activities.slice(0, 8);
+  const recentActivities = activities.slice(0, 50);
 
   return {
     stats,
