@@ -110,10 +110,20 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
             : [];
 
         const enriched: CommandeSummary[] = rawCmds.map((cmd) => {
-          const matchingFacture = facturesList.find(
-            (f) => Number(f.commande_id) === Number(cmd.id)
+          const matchingFacture =
+            facturesList.find(
+              (f) =>
+                Number(f.commande_id) === Number(cmd.id) &&
+                (f.statut_paiement === 'PAYEE' || f.statut_paiement?.toUpperCase() === 'PAYEE')
+            ) ||
+            facturesList.find((f) => Number(f.commande_id) === Number(cmd.id));
+
+          const isPaid = Boolean(
+            matchingFacture &&
+            (matchingFacture.statut_paiement === 'PAYEE' ||
+             matchingFacture.statut_paiement?.toUpperCase() === 'PAYEE' ||
+             matchingFacture.statut_paiement?.toLowerCase() === 'payée')
           );
-          const isPaid = matchingFacture?.statut_paiement === 'PAYEE';
           const lines = cmd.lignesCommande || cmd.lignes || [];
 
           return {
@@ -262,47 +272,63 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
     }
   };
 
-  const getStatusConfig = (statut: string) => {
+  const getStatusConfig = (statut: string, facturePayee?: boolean) => {
+    if (facturePayee) {
+      return {
+        badge: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/90 dark:border-emerald-800/80',
+        icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1" />,
+        label: 'PAYEE',
+      };
+    }
+
     switch (statut) {
       case 'LIVREE':
         return {
           badge: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/90 dark:border-emerald-800/80',
           icon: <Truck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1" />,
+          label: 'LIVREE',
         };
       case 'EN_COURS':
         return {
           badge: 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200/90 dark:border-blue-800/80',
           icon: <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mr-1" />,
+          label: 'EN_COURS',
         };
       case 'VALIDEE':
         return {
           badge: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/90 dark:border-emerald-800/80',
           icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1" />,
+          label: 'VALIDEE',
         };
       case 'RECEPTIONNEE':
         return {
           badge: 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200/90 dark:border-blue-800/80',
           icon: <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mr-1" />,
+          label: 'RECEPTIONNEE',
         };
       case 'FACTUREE':
         return {
           badge: 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200/90 dark:border-purple-800/80',
           icon: <Receipt className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 mr-1" />,
+          label: 'FACTUREE',
         };
       case 'EN_ATTENTE':
         return {
           badge: 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200/90 dark:border-amber-800/80',
           icon: <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 mr-1" />,
+          label: 'EN_ATTENTE',
         };
       case 'ANNULEE':
         return {
           badge: 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200/90 dark:border-rose-800/80',
           icon: <Ban className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 mr-1" />,
+          label: 'ANNULEE',
         };
       default:
         return {
           badge: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
           icon: null,
+          label: statut,
         };
     }
   };
@@ -604,7 +630,11 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                   ) : (
                     <div className="space-y-3">
                       {filteredCommandes.map((cmd) => {
-                        const statusConfig = getStatusConfig(cmd.statut);
+                        const isFacturePayee = Boolean(
+                          cmd.facturePayee ||
+                          (cmd.facture && (cmd.facture.statut_paiement === 'PAYEE' || cmd.facture.statut_paiement?.toUpperCase() === 'PAYEE'))
+                        );
+                        const statusConfig = getStatusConfig(cmd.statut, isFacturePayee);
                         const isExpanded = expandedId === cmd.id;
                         const formattedDate = new Date(cmd.dateCommande).toLocaleDateString('fr-FR', {
                           day: '2-digit',
@@ -635,7 +665,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-2xs ${statusConfig.badge}`}
                                   >
                                     {statusConfig.icon}
-                                    {cmd.statut}
+                                    {statusConfig.label}
                                   </span>
                                 </div>
                                 <div className="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400">
