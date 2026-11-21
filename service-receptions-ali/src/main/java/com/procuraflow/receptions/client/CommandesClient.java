@@ -1,6 +1,8 @@
 package com.procuraflow.receptions.client;
 
 import com.procuraflow.receptions.client.dto.CommandeResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -14,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class CommandesClient {
 
+    private static final Logger log = LoggerFactory.getLogger(CommandesClient.class);
     private final RestClient restClient;
 
     public CommandesClient(
@@ -75,5 +78,25 @@ public class CommandesClient {
         }
 
         return commande;
+    }
+
+    public void mettreAJourStatut(Long commandeId, String statut) {
+        if (commandeId == null || commandeId <= 0 || statut == null || statut.isBlank()) {
+            return;
+        }
+
+        try {
+            restClient.put()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/commandes/{id}/statut")
+                            .queryParam("statut", statut)
+                            .build(commandeId))
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Statut de la commande #{} mis à jour automatiquement vers : {}", commandeId, statut);
+        } catch (Exception exception) {
+            log.warn("Impossible de synchroniser le statut de la commande #{} vers {} : {}",
+                    commandeId, statut, exception.getMessage());
+        }
     }
 }

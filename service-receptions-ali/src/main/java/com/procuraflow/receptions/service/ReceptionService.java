@@ -50,8 +50,10 @@ public class ReceptionService {
 
     public List<Solde> soldes(Long commandeId) {
         var commande = commandes.obtenirCommande(commandeId);
-        if (!"VALIDEE".equals(commande.statut()) && !"EXPEDIEE".equals(commande.statut())) {
-            throw new ResponseStatusException(CONFLICT, "La commande doit être validée ou expédiée.");
+        if (!"VALIDEE".equals(commande.statut()) && !"EXPEDIEE".equals(commande.statut())
+                && !"EN_COURS".equals(commande.statut()) && !"EN_ATTENTE".equals(commande.statut())
+                && !"LIVREE".equals(commande.statut())) {
+            throw new ResponseStatusException(CONFLICT, "La commande n'est pas dans un état permettant la consultation ou la réception.");
         }
         Map<Long, Long> cumuls = new HashMap<>();
         for (var reception : repository.consulter(commandeId)) {
@@ -127,7 +129,27 @@ public class ReceptionService {
             }
             reception.ajouterLigne(ligne.ligneCommandeId(), ligne.quantiteRecue(), ligne.remarques());
         }
-        return new Creation(ReceptionResponse.from(repository.saveAndFlush(reception)), true);
+        var receptionEnregistree = repository.saveAndFlush(reception);
+
+        // Déterminer si toutes les lignes de la commande ont été totalement livrées
+        boolean toutLivre = true;
+        for (Map.Entry<Long, Long> entry : restantes.entrySet()) {
+            Long ligneId = entry.getKey();
+            long resteAvant = entry.getValue();
+            var recueDansDemande = selection.get(ligneId);
+            long qteRecue = (recueDansDemande != null && recueDansDemande.quantiteRecue() != null)
+                    ? recueDansDemande.quantiteRecue()
+                    : 0L;
+            if (resteAvant - qteRecue > 0) {
+                toutLivre = false;
+                break;
+            }
+        }
+
+        String nouveauStatut = toutLivre ? "LIVREE" : "EN_COURS";
+        commandes.mettreAJourStatut(demande.commandeId(), nouveauStatut);
+
+        return new Creation(ReceptionResponse.from(receptionEnregistree), true);
     }
 
     private void verrouiller(String domaine, String valeur) {

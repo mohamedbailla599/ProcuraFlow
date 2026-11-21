@@ -14,7 +14,7 @@ import {
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import { getAllCommandes } from '../../commandes/api';
+import { getAllCommandes, updateCommandeStatut } from '../../commandes/api';
 import type { Commande } from '../../commandes/types';
 import { creer, soldes } from '../api';
 import type { Reception, Solde } from '../types';
@@ -147,6 +147,20 @@ export function ReceptionForm({
 
     try {
       const created = await creer({ ...payload, cleCreation: retry.current.key });
+
+      // Vérifier si toutes les lignes de la commande sont entièrement reçues
+      const willBeFullyReceived = lines.every((l) => {
+        const receivedNow = Number(quantities[l.ligneCommandeId] || 0);
+        return l.restante - receivedNow <= 0;
+      });
+
+      // Synchronisation immédiate du statut de la commande côté client
+      try {
+        await updateCommandeStatut(Number(order), willBeFullyReceived ? 'LIVREE' : 'EN_COURS');
+      } catch (err) {
+        console.warn('Statut commande sync warning:', err);
+      }
+
       saved(created);
     } catch (e) {
       setError((e as Error).message);
