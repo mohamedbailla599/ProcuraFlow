@@ -390,6 +390,22 @@ public class FournisseurService {
         return FournisseurResponse.fromEntity(updated);
     }
 
+    @Transactional
+    public void deleteFournisseurPermanently(Long id) {
+        if (!fournisseurRepository.existsById(id)) {
+            throw new FournisseurNotFoundException(id);
+        }
+        fournisseurRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void deleteFournisseursPermanently(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        fournisseurRepository.deleteAllById(ids);
+    }
+
     @Transactional(readOnly = true)
     public List<CommandeSummaryResponse> getCommandesByFournisseurId(Long id) {
         if (!fournisseurRepository.existsById(id)) {

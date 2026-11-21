@@ -421,6 +421,40 @@ export const fournisseurApi = {
     return parseResponse<Fournisseur>(res);
   },
 
+  async deleteFournisseurPermanently(id: number): Promise<void> {
+    const res = await fetch(`${API_BASE}/${id}?permanent=true`, {
+      method: 'DELETE',
+      headers: { Accept: 'application/json' },
+    });
+    return parseResponse<void>(res);
+  },
+
+  async bulkDeleteFournisseurs(ids: number[], permanent = true): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    try {
+      const res = await fetch(`${API_BASE}/bulk-delete?permanent=${permanent}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(ids),
+      });
+      if (res.ok) return;
+    } catch {
+      // Fallback in case bulk-delete endpoint is unavailable
+    }
+
+    // Fallback: parallel delete
+    await Promise.all(
+      ids.map((id) =>
+        fetch(`${API_BASE}/${id}?permanent=${permanent}`, {
+          method: 'DELETE',
+        })
+      )
+    );
+  },
+
   async getCommandes(id: number): Promise<CommandeSummary[]> {
     const res = await fetch(`${API_BASE}/${id}/commandes`, {
       headers: { Accept: 'application/json' },

@@ -20,6 +20,7 @@ import { FournisseurCards } from '../components/FournisseurCards';
 import { PaginationBar } from '../components/PaginationBar';
 import { FournisseurModal } from '../components/FournisseurModal';
 import { ConfirmModal } from '../../../components/ConfirmModal';
+import { DeleteSuppliersModal } from '../components/DeleteSuppliersModal';
 import { CommandesDrawer } from '../components/CommandesDrawer';
 import { ImportModal } from '../components/ImportModal';
 import { Toast, ToastMessage } from '../../../components/Toast';
@@ -148,6 +149,14 @@ export const FournisseursPage = () => {
     isOpen: false,
     fournisseur: null,
   });
+  const [deleteModalConfig, setDeleteModalConfig] = useState<{
+    isOpen: boolean;
+    suppliers: Fournisseur[];
+  }>({
+    isOpen: false,
+    suppliers: [],
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Notifications (stacked modern toast queue)
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -547,6 +556,55 @@ export const FournisseursPage = () => {
       showToast('error', `Échec lors du changement de statut de ${fournisseur.nom}`);
     }
   };
+
+  // Handle Exceptional Deletion
+  const handleOpenDeleteModal = useCallback((suppliers: Fournisseur[]) => {
+    if (!suppliers || suppliers.length === 0) return;
+    setDeleteModalConfig({
+      isOpen: true,
+      suppliers,
+    });
+  }, []);
+
+  const handleCloseDeleteModal = useCallback(() => {
+    if (isDeleting) return;
+    setDeleteModalConfig({
+      isOpen: false,
+      suppliers: [],
+    });
+  }, [isDeleting]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    const toDelete = deleteModalConfig.suppliers;
+    if (!toDelete || toDelete.length === 0) return;
+
+    setIsDeleting(true);
+    const ids = toDelete.map((f) => f.id);
+    const count = toDelete.length;
+
+    try {
+      if (demoMode) {
+        setMockStore((prev) => prev.filter((f) => !ids.includes(f.id)));
+        showToast(
+          'success',
+          `${count} fournisseur${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''} définitivement (Mode Démo) !`
+        );
+      } else {
+        await fournisseurApi.bulkDeleteFournisseurs(ids, true);
+        showToast(
+          'success',
+          `${count} fournisseur${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''} définitivement avec succès !`
+        );
+      }
+      setDeleteModalConfig({ isOpen: false, suppliers: [] });
+      triggerReload(true);
+    } catch (err: any) {
+      console.error('Erreur lors de la suppression exceptionnelle:', err);
+      showToast('error', err?.message || 'Erreur lors de la suppression exceptionnelle des fournisseurs.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteModalConfig.suppliers, demoMode, showToast, triggerReload]);
 
   const handleOpenEdit = (fournisseur: Fournisseur) => {
     setFournisseurToEdit(fournisseur);
@@ -990,6 +1048,7 @@ export const FournisseursPage = () => {
             onEdit={handleOpenEdit}
             onToggleStatus={handleToggleStatus}
             onViewCommandes={handleViewCommandes}
+            onDelete={handleOpenDeleteModal}
             onCityFilter={handleCityFilterChange}
             onNotify={showToast}
           />
@@ -1019,6 +1078,7 @@ export const FournisseursPage = () => {
             onEdit={handleOpenEdit}
             onToggleStatus={handleToggleStatus}
             onViewCommandes={handleViewCommandes}
+            onDelete={handleOpenDeleteModal}
           />
           {!(pageError && fournisseurs.length === 0) && (
             <PaginationBar
@@ -1108,6 +1168,16 @@ export const FournisseursPage = () => {
           triggerReload(true);
           showToast('success', `${count} fournisseur(s) importé(s) avec succès !`);
         }}
+      />
+
+      {/* Modal Suppression Exceptionnelle Définitive */}
+      <DeleteSuppliersModal
+        isOpen={deleteModalConfig.isOpen}
+        suppliers={deleteModalConfig.suppliers}
+        orderStats={orderStats}
+        loading={isDeleting}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
       />
 
       {/* Stacked Animated Modern Toasts */}

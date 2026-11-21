@@ -233,18 +233,49 @@ public class FournisseurController {
 
     @DeleteMapping("/{id}")
     @Operation(
-            summary = "Désactiver logiquement un fournisseur (DELETE du contrat d'intégration)",
-            description = "Effectue une désactivation logique (actif = false) conformément à la section 5.1 et 5.4 du contrat d'intégration et retourne 204 No Content."
+            summary = "Supprimer ou désactiver un fournisseur",
+            description = "Par défaut, effectue une désactivation logique (actif = false) conformément au contrat d'intégration. Si permanent=true ou force=true, effectue une suppression physique définitive exceptionnelle."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Fournisseur désactivé logiquement (aucune suppression physique)"),
+            @ApiResponse(responseCode = "204", description = "Fournisseur traité avec succès"),
             @ApiResponse(responseCode = "404", description = "Fournisseur introuvable",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
-    public ResponseEntity<Void> deactivateFournisseurDelete(
-            @PathVariable("id") @Positive(message = "L'identifiant du fournisseur doit être un entier positif.") Long id
+    public ResponseEntity<Void> deleteFournisseur(
+            @PathVariable("id") @Positive(message = "L'identifiant du fournisseur doit être un entier positif.") Long id,
+            @Parameter(description = "Suppression physique définitive exceptionnelle (irréversible)")
+            @RequestParam(name = "permanent", required = false, defaultValue = "false") boolean permanent,
+            @Parameter(description = "Alias pour permanent")
+            @RequestParam(name = "force", required = false, defaultValue = "false") boolean force
     ) {
-        fournisseurService.deactivateFournisseur(id);
+        if (permanent || force) {
+            fournisseurService.deleteFournisseurPermanently(id);
+        } else {
+            fournisseurService.deactivateFournisseur(id);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/bulk-delete")
+    @Operation(
+            summary = "Suppression exceptionnelle groupée de fournisseurs",
+            description = "Supprime physiquement ou désactive logiquement une sélection d'identifiants de fournisseurs."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Fournisseurs traités avec succès")
+    })
+    public ResponseEntity<Void> bulkDeleteFournisseurs(
+            @RequestBody List<Long> ids,
+            @Parameter(description = "Suppression physique définitive exceptionnelle (irréversible)")
+            @RequestParam(name = "permanent", required = false, defaultValue = "true") boolean permanent
+    ) {
+        if (ids != null && !ids.isEmpty()) {
+            if (permanent) {
+                fournisseurService.deleteFournisseursPermanently(ids);
+            } else {
+                ids.forEach(fournisseurService::deactivateFournisseur);
+            }
+        }
         return ResponseEntity.noContent().build();
     }
 

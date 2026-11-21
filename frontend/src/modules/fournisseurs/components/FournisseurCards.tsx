@@ -8,6 +8,7 @@ import {
   Edit2,
   Power,
   RotateCcw,
+  Trash2,
   Copy,
   Check,
   Star,
@@ -32,6 +33,7 @@ interface FournisseurCardsProps {
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
   onViewCommandes: (fournisseur: Fournisseur) => void;
+  onDelete?: (fournisseurs: Fournisseur[]) => void;
 }
 
 export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
@@ -45,6 +47,7 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
   onEdit,
   onToggleStatus,
   onViewCommandes,
+  onDelete,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -397,7 +400,7 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
                     onClick={() => onToggleStatus(fournisseur)}
                     title="Désactiver le fournisseur"
                     aria-label="Désactiver"
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition-all duration-150 active:scale-95"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-200 dark:hover:border-amber-800/60 transition-all duration-150 active:scale-95"
                   >
                     <Power className="w-3.5 h-3.5" />
                   </button>
@@ -410,6 +413,19 @@ export const FournisseurCards: React.FC<FournisseurCardsProps> = ({
                     className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/60 transition-all duration-150 active:scale-95"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Action Suppression Exceptionnelle */}
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete([fournisseur])}
+                    title="Suppression exceptionnelle définitive"
+                    aria-label="Supprimer définitivement"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition-all duration-150 active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

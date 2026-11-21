@@ -14,6 +14,7 @@ import {
   AlertCircle,
   RefreshCw,
   Download,
+  Trash2,
   X,
   CheckSquare,
   Square,
@@ -35,6 +36,7 @@ interface FournisseurTableProps {
   onEdit: (fournisseur: Fournisseur) => void;
   onToggleStatus: (fournisseur: Fournisseur) => void;
   onViewCommandes: (fournisseur: Fournisseur) => void;
+  onDelete?: (fournisseurs: Fournisseur[]) => void;
   onCityFilter?: (city: string) => void;
   onNotify?: (type: 'success' | 'error' | 'warning', text: string) => void;
 }
@@ -50,6 +52,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
   onEdit,
   onToggleStatus,
   onViewCommandes,
+  onDelete,
   onCityFilter,
   onNotify,
 }) => {
@@ -525,7 +528,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                           onClick={() => onToggleStatus(fournisseur)}
                           title="Désactiver ce fournisseur"
                           aria-label="Désactiver le fournisseur"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition-all duration-150 active:scale-95"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-200 dark:hover:border-amber-800/60 transition-all duration-150 active:scale-95"
                         >
                           <Power className="w-3.5 h-3.5" />
                         </button>
@@ -540,6 +543,19 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       )}
+
+                      {/* Action Suppression Exceptionnelle Individuelle */}
+                      {onDelete && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete([fournisseur])}
+                          title="Suppression exceptionnelle définitive"
+                          aria-label="Supprimer définitivement ce fournisseur"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60 transition-all duration-150 active:scale-95"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -551,7 +567,7 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
 
       {/* Floating Bulk Actions Bar (Appears when items are selected) */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-4 animate-fade-in-up">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-md text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3 sm:gap-4 animate-fade-in-up">
           <div className="flex items-center space-x-2">
             <span className="w-6 h-6 rounded-lg bg-teal-500 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
               {selectedIds.size}
@@ -572,6 +588,21 @@ export const FournisseurTable: React.FC<FournisseurTableProps> = ({
             <Download className="w-3.5 h-3.5" />
             <span>Exporter CSV ({selectedIds.size})</span>
           </button>
+
+          {/* Action Suppression Exceptionnelle Définitive */}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => {
+                const selectedList = fournisseurs.filter((f) => selectedIds.has(f.id));
+                if (selectedList.length > 0) onDelete(selectedList);
+              }}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-colors active:scale-95 cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Supprimer ({selectedIds.size})</span>
+            </button>
+          )}
 
           {/* Action Tout désélectionner */}
           <button
