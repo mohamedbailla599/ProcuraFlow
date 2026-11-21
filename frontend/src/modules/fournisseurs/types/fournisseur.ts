@@ -29,9 +29,12 @@ export interface CommandeSummary {
   id: number;
   fournisseurId: number;
   dateCommande: string;
-  statut: 'EN_ATTENTE' | 'VALIDEE' | 'RECEPTIONNEE' | 'FACTUREE' | 'ANNULEE' | string;
+  statut: 'EN_ATTENTE' | 'VALIDEE' | 'EN_COURS' | 'LIVREE' | 'RECEPTIONNEE' | 'FACTUREE' | 'ANNULEE' | string;
   montantTotal: number;
   lignes?: LigneCommandeSummary[];
+  lignesCommande?: LigneCommandeSummary[];
+  facture?: any;
+  facturePayee?: boolean;
 }
 
 export interface ApiErrorResponse {

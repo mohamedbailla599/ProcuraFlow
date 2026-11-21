@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import { Fournisseur, CommandeSummary, ApiErrorResponse } from '../types/fournisseur';
 import { fournisseurApi, MOCK_COMMANDES } from '../api/fournisseurApi';
+import { getCommandesByFournisseur, getCommandeById } from '../../commandes/api';
+import { factureApi } from '../../factures/api';
+import { Facture } from '../../factures/types';
 import { computeOrderStats, formatMAD } from '../utils/orderStats';
 import { exportSupplierDossierPDF } from '../utils/pdfExport';
 import { computeSupplierRating, saveSupplierRating } from '../utils/scoring';
@@ -87,8 +90,46 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
       }
 
       try {
-        const data = await fournisseurApi.getCommandes(fournisseur.id);
-        setCommandes(data);
+        // Interrogation conjointe du microservice Commandes (:8082) et Factures (:8084)
+        const [cmdsResult, facturesResult] = await Promise.allSettled([
+          getCommandesByFournisseur(fournisseur.id),
+          factureApi.getFactures(),
+        ]);
+
+        let rawCmds: any[] = [];
+        if (cmdsResult.status === 'fulfilled' && Array.isArray(cmdsResult.value)) {
+          rawCmds = cmdsResult.value;
+        } else {
+          // Repli sur l'API fournisseur si service-commandes n'a pas répondu directement
+          rawCmds = await fournisseurApi.getCommandes(fournisseur.id);
+        }
+
+        const facturesList: Facture[] =
+          facturesResult.status === 'fulfilled' && Array.isArray(facturesResult.value)
+            ? facturesResult.value
+            : [];
+
+        const enriched: CommandeSummary[] = rawCmds.map((cmd) => {
+          const matchingFacture = facturesList.find(
+            (f) => Number(f.commande_id) === Number(cmd.id)
+          );
+          const isPaid = matchingFacture?.statut_paiement === 'PAYEE';
+          const lines = cmd.lignesCommande || cmd.lignes || [];
+
+          return {
+            id: cmd.id,
+            fournisseurId: cmd.fournisseurId,
+            dateCommande: cmd.dateCommande,
+            statut: cmd.statut,
+            montantTotal: cmd.montantTotal,
+            lignes: lines,
+            lignesCommande: lines,
+            facture: matchingFacture,
+            facturePayee: isPaid,
+          };
+        });
+
+        setCommandes(enriched);
       } catch (err: unknown) {
         const apiErr = err as ApiErrorResponse;
         if (apiErr?.status === 503 || apiErr?.status === 502) {
@@ -125,8 +166,21 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
 
   const filteredCommandes = useMemo(() => {
     return commandes.filter((cmd) => {
-      if (statusFilter === 'ACTIVE') return cmd.statut === 'EN_ATTENTE' || cmd.statut === 'VALIDEE';
-      if (statusFilter === 'COMPLETED') return cmd.statut === 'RECEPTIONNEE' || cmd.statut === 'FACTUREE';
+      const isCompleted =
+        cmd.statut === 'LIVREE' ||
+        cmd.statut === 'RECEPTIONNEE' ||
+        cmd.statut === 'FACTUREE' ||
+        Boolean(cmd.facturePayee) ||
+        cmd.facture?.statut_paiement === 'PAYEE';
+
+      const isActive =
+        (cmd.statut === 'EN_ATTENTE' ||
+          cmd.statut === 'VALIDEE' ||
+          cmd.statut === 'EN_COURS') &&
+        !isCompleted;
+
+      if (statusFilter === 'ACTIVE') return isActive;
+      if (statusFilter === 'COMPLETED') return isCompleted;
       if (statusFilter === 'CANCELLED') return cmd.statut === 'ANNULEE';
       return true;
     });
@@ -178,12 +232,48 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
     }
   };
 
-  const toggleExpand = (id: number) => {
-    setExpandedId((prev) => (prev === id ? null : id));
+  const toggleExpand = async (id: number) => {
+    const isCurrentlyExpanded = expandedId === id;
+    setExpandedId(isCurrentlyExpanded ? null : id);
+
+    if (!isCurrentlyExpanded) {
+      const target = commandes.find((c) => c.id === id);
+      const lines = target?.lignesCommande || target?.lignes || [];
+      if (lines.length === 0) {
+        try {
+          const detailed = await getCommandeById(id);
+          if (detailed && detailed.lignesCommande && detailed.lignesCommande.length > 0) {
+            setCommandes((prev) =>
+              prev.map((c) =>
+                c.id === id
+                  ? {
+                      ...c,
+                      lignes: detailed.lignesCommande,
+                      lignesCommande: detailed.lignesCommande,
+                    }
+                  : c
+              )
+            );
+          }
+        } catch (e) {
+          console.warn('Could not fetch detailed lines for commande #', id, e);
+        }
+      }
+    }
   };
 
   const getStatusConfig = (statut: string) => {
     switch (statut) {
+      case 'LIVREE':
+        return {
+          badge: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/90 dark:border-emerald-800/80',
+          icon: <Truck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mr-1" />,
+        };
+      case 'EN_COURS':
+        return {
+          badge: 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200/90 dark:border-blue-800/80',
+          icon: <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mr-1" />,
+        };
       case 'VALIDEE':
         return {
           badge: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/90 dark:border-emerald-800/80',
@@ -443,7 +533,7 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  En cours ({stats.pendingOrders + stats.validatedOrders})
+                  En cours ({Math.max(0, stats.activeOrders - stats.completedOrders)})
                 </button>
                 <button
                   type="button"
@@ -581,40 +671,99 @@ export const CommandesDrawer: React.FC<CommandesDrawerProps> = ({
                               </div>
                             </div>
 
-                            {/* Expanded order lines */}
-                            {isExpanded && cmd.lignes && cmd.lignes.length > 0 && (
-                              <div className="px-4 pb-4 pt-2.5 bg-slate-50/80 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-700 text-xs">
-                                <p className="font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center space-x-1.5">
-                                  <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                                  <span>Détail des articles commandés :</span>
-                                </p>
-                                <div className="space-y-1.5">
-                                  {cmd.lignes.map((ligne, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700 shadow-2xs"
-                                    >
-                                      <div className="text-slate-800 dark:text-slate-200">
-                                        <span className="font-semibold text-slate-900 dark:text-white">
-                                          {ligne.designation}
-                                        </span>
-                                        <span className="text-slate-400 dark:text-slate-500 ml-2">
-                                          Qté : {ligne.quantite}
-                                        </span>
-                                      </div>
-                                      <div className="text-right">
-                                        <span className="font-bold text-slate-800 dark:text-slate-200">
-                                          {formatMAD(ligne.quantite * ligne.prixUnitaire)}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
-                                          ({ligne.prixUnitaire.toFixed(2)} MAD / u)
-                                        </span>
-                                      </div>
+                            {/* Expanded order lines & details */}
+                            {isExpanded && (() => {
+                              const lines = cmd.lignesCommande || cmd.lignes || [];
+                              return (
+                                <div className="px-4 pb-4 pt-3 bg-slate-50/90 dark:bg-slate-850/90 border-t border-slate-100 dark:border-slate-700/80 text-xs space-y-3 animate-fade-in">
+                                  <div className="flex items-center justify-between">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-1.5">
+                                      <Package className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                      <span>
+                                        Nomenclature des articles ({lines.length} référence{lines.length > 1 ? 's' : ''}) :
+                                      </span>
+                                    </p>
+                                    <span className="text-[11px] font-mono font-bold text-teal-600 dark:text-teal-400">
+                                      Total : {formatMAD(cmd.montantTotal)}
+                                    </span>
+                                  </div>
+
+                                  {lines.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                      {lines.map((ligne, idx) => {
+                                        const pu = Number(ligne.prixUnitaire || 0);
+                                        const qte = Number(ligne.quantite || 0);
+                                        const totalLigne = Number((pu * qte).toFixed(2));
+                                        return (
+                                          <div
+                                            key={ligne.id || idx}
+                                            className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700 shadow-2xs hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                                          >
+                                            <div className="flex items-center space-x-2.5 min-w-0">
+                                              <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
+                                                {idx + 1}
+                                              </span>
+                                              <div className="min-w-0">
+                                                <span className="font-semibold text-slate-900 dark:text-white block truncate">
+                                                  {ligne.designation}
+                                                </span>
+                                                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                                                  Quantité commandée : <strong className="text-slate-700 dark:text-slate-300">{qte}</strong>
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <div className="text-right shrink-0 pl-3">
+                                              <span className="font-bold text-slate-900 dark:text-white block font-mono">
+                                                {formatMAD(totalLigne)}
+                                              </span>
+                                              <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-mono">
+                                                ({pu.toFixed(2)} MAD / u)
+                                              </span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                  ))}
+                                  ) : (
+                                    <div className="p-3 text-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-400 text-xs">
+                                      Chargement ou aucune ligne d'achat pour ce bon de commande.
+                                    </div>
+                                  )}
+
+                                  {/* Statut de livraison & facturation rattachée */}
+                                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                    <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-300">
+                                      <Truck className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                      <span>Livraison physique :</span>
+                                      <strong className="text-slate-800 dark:text-slate-100">
+                                        {cmd.statut === 'LIVREE' ? 'Livrée & Réceptionnée conforme' : cmd.statut}
+                                      </strong>
+                                    </div>
+
+                                    {cmd.facture ? (
+                                      <div className="flex items-center space-x-1.5 text-slate-600 dark:text-slate-300">
+                                        <Receipt className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                        <span>Facture :</span>
+                                        <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                                          {cmd.facture.numero_facture || `#${cmd.facture.id}`}
+                                        </span>
+                                        <span
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                            cmd.facture.statut_paiement === 'PAYEE'
+                                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                          }`}
+                                        >
+                                          {cmd.facture.statut_paiement === 'PAYEE' ? 'Payée' : 'Non Payée'}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400 text-[10px]">Facture en attente d’établissement</span>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
                           </div>
                         );
                       })}

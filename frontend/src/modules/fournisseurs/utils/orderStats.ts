@@ -100,8 +100,12 @@ export function computeOrderStats(commandes?: CommandeSummary[] | null): Supplie
     const isCancelled = cmd.statut === 'ANNULEE';
     const isPending = cmd.statut === 'EN_ATTENTE';
     const isValidated = cmd.statut === 'VALIDEE';
-    const isReceived = cmd.statut === 'RECEPTIONNEE';
-    const isInvoiced = cmd.statut === 'FACTUREE';
+    const isEnCours = cmd.statut === 'EN_COURS';
+    const isReceived = cmd.statut === 'RECEPTIONNEE' || cmd.statut === 'LIVREE';
+    const isInvoiced =
+      cmd.statut === 'FACTUREE' ||
+      Boolean(cmd.facturePayee) ||
+      cmd.facture?.statut_paiement === 'PAYEE';
     const isCompleted = isReceived || isInvoiced;
 
     if (isCancelled) {
@@ -115,14 +119,14 @@ export function computeOrderStats(commandes?: CommandeSummary[] | null): Supplie
       if (isPending) {
         pendingOrders++;
       } else {
-        // Commandes ayant franchi la validation : VALIDEE, RECEPTIONNEE, FACTUREE
+        // Commandes ayant franchi la validation : VALIDEE, EN_COURS, LIVREE, RECEPTIONNEE, FACTUREE
         totalCommittedAmount += amount;
-        if (isValidated) {
+        if (isValidated || isEnCours) {
           validatedOrders++;
         }
       }
 
-      // 3. Montant Réceptionné / Facturé (service fait / facture reçue)
+      // 3. Montant Réceptionné / Facturé (service fait / livrée / payée)
       if (isCompleted) {
         completedOrders++;
         receivedOrInvoicedAmount += amount;
