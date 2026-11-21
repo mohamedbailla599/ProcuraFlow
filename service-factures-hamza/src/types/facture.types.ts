@@ -56,6 +56,7 @@ export interface ReceptionResponse {
   commandeId?: number;
   date_reception?: string;
   statut_reception?: string;
+  statutReception?: string;
   statut?: string;
   status?: string;
   remarques?: string;

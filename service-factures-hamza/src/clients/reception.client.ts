@@ -25,11 +25,17 @@ export async function verifierReception(
 ): Promise<ReceptionResponse> {
   const reception = await getReceptionById(receptionId);
 
-  const statut = (reception.statut || reception.status) as string;
+  const rawStatut =
+    reception.statutReception ||
+    reception.statut_reception ||
+    reception.statut ||
+    reception.status;
+
+  const statut = (rawStatut ? String(rawStatut).toUpperCase() : '') as string;
 
   if (!STATUTS_CONFORMES.includes(statut)) {
     throw ApiError.badRequest(
-      `La réception ${receptionId} a le statut "${statut}" et ne permet pas la facturation. ` +
+      `La réception ${receptionId} a le statut "${statut || 'INCONNU'}" et ne permet pas la facturation. ` +
         `Statuts autorisés : ${STATUTS_CONFORMES.join(', ')}`
     );
   }
