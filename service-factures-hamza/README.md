@@ -30,14 +30,14 @@ Routes → Middlewares (validation Zod) → Controller → Service (logique mét
                                           Services Commandes & Réceptions
 ```
 
-**Stack technique :** Node.js, Express, PostgreSQL (`pg`), Zod, Axios, Jest, Supertest.
+**Stack technique :** Node.js, TypeScript, Express, PostgreSQL (`pg`), Zod, Axios, Jest, ts-jest, tsx, Supertest.
 
 ---
 
 ## ✅ Prérequis
 
 - **Node.js** ≥ 18
-- **npm** ≥ 9
+- **npm** ≥ 9 
 - **PostgreSQL** ≥ 15 (ou Docker)
 
 ---
@@ -108,15 +108,22 @@ psql -U admin_achats -d db_achats_univ
 
 ## 🚀 Lancement
 
-### Mode développement (avec rechargement automatique)
+### Mode développement (TypeScript en temps réel avec tsx)
 
 ```bash
 npm run dev
 ```
 
-### Mode production
+### Compilation TypeScript
 
 ```bash
+npm run build
+```
+
+### Mode production (exécution du code compilé)
+
+```bash
+npm run build
 npm start
 ```
 
@@ -271,41 +278,45 @@ docker-compose up service-factures
 ```
 service-factures-hamza/
 ├── src/
-│   ├── config/
-│   │   ├── database.js          # Pool PostgreSQL
-│   │   └── env.js               # Variables d'environnement
-│   ├── controllers/
-│   │   └── facture.controller.js
-│   ├── services/
-│   │   └── facture.service.js   # Logique métier
-│   ├── repositories/
-│   │   └── facture.repository.js # Requêtes SQL
-│   ├── routes/
-│   │   └── facture.routes.js
-│   ├── middlewares/
-│   │   ├── error.middleware.js
-│   │   └── validation.middleware.js
-│   ├── validators/
-│   │   └── facture.validator.js # Schémas Zod
 │   ├── clients/
-│   │   ├── commande.client.js   # Client REST Commandes
-│   │   └── reception.client.js  # Client REST Réceptions
+│   │   ├── commande.client.ts    # Client REST Commandes
+│   │   └── reception.client.ts   # Client REST Réceptions
+│   ├── config/
+│   │   ├── database.ts           # Pool PostgreSQL typé
+│   │   └── env.ts                # Variables d'environnement typées
+│   ├── controllers/
+│   │   └── facture.controller.ts # Handlers REST
+│   ├── middlewares/
+│   │   ├── error.middleware.ts   # Gestion globale des erreurs
+│   │   └── validation.middleware.ts # Validation Zod
+│   ├── repositories/
+│   │   └── facture.repository.ts # Requêtes SQL et persistance
+│   ├── routes/
+│   │   └── facture.routes.ts     # Définition des endpoints
+│   ├── services/
+│   │   └── facture.service.ts    # Logique métier & règles
+│   ├── types/
+│   │   └── facture.types.ts      # Interfaces et types TypeScript
 │   ├── utils/
-│   │   └── ApiError.js
-│   └── app.js
+│   │   └── ApiError.ts           # Classe d'erreur personnalisée
+│   ├── app.ts                    # Configuration Express
+│   └── server.ts                 # Point d'entrée HTTP
 ├── tests/
+│   ├── integration/
+│   │   └── facture.routes.test.ts
 │   ├── unit/
-│   │   └── facture.service.test.js
-│   └── integration/
-│       └── facture.routes.test.js
+│   │   └── facture.service.test.ts
+│   └── recette.test.ts           # Cahier de recette (9 critères)
 ├── database/
-│   └── schema.sql               # DDL PostgreSQL
-├── server.js                     # Point d'entrée serveur
+│   └── schema.sql                # DDL PostgreSQL
+├── dist/                         # Code JavaScript compilé (production)
 ├── .env.example
 ├── .gitignore
-├── Dockerfile
+├── Dockerfile                    # Multi-stage Dockerfile TypeScript
 ├── jest.config.js
 ├── package.json
+├── tsconfig.json                 # Configuration TypeScript
+├── RAPPORT.md
 └── README.md
 ```
 
@@ -318,4 +329,4 @@ service-factures-hamza/
 | Mohamed BAILLA | Fournisseurs | Django | 8081 |
 | Yassine MESKAOUI | Commandes | Spring Boot | 8082 |
 | Ali HALLA | Réceptions | Spring Boot | 8083 |
-| **Hamza AIT BENAYAD** | **Factures** | **Node.js** | **8084** |
+| **Hamza AIT BENAYAD** | **Factures** | **Node.js / TypeScript** | **8084** |
