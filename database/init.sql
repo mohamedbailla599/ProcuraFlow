@@ -15,18 +15,6 @@ CREATE TABLE IF NOT EXISTS schema_fournisseurs.fournisseurs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Seed initial Fournisseurs (idempotent via ON CONFLICT)
-INSERT INTO schema_fournisseurs.fournisseurs (nom, email, telephone, adresse, actif, created_at, updated_at)
-VALUES
-    ('Atlas Fournitures Industrielles', 'contact@atlas-fournitures.example', '+212 528 84 00 00', 'Zone Industrielle Tassila, Agadir, Maroc', true, NOW(), NOW()),
-    ('TechnoLab Équipements Scientifiques', 'ventes@technolab-univ.fr', '+33 1 42 68 55 10', '14 Rue des Sciences, 75005 Paris, France', true, NOW(), NOW()),
-    ('BuroTech Maroc', 'support@burotech.ma', '+212 522 30 11 22', 'Bd Mohammed V, Casablanca, Maroc', false, NOW(), NOW()),
-    ('Campus Clean Services', 'service.client@campusclean.ma', '+212 661 23 45 67', 'Avenue des FAR, Rabat, Maroc', true, NOW(), NOW()),
-    ('Tanger Logistique Express', 'direction@tanger-logistique.ma', '+212 539 32 14 80', 'Zone Franche Exportation, Tanger, Maroc', true, NOW(), NOW()),
-    ('Maghreb Informatique SARL', 'contact@maghreb-info.ma', '+212 522 40 55 19', 'Boulevard Zerktouni, Casablanca, Maroc', true, NOW(), NOW()),
-    ('Fès Solutions Énergies', 'contact@fes-energies.ma', '+212 535 62 41 00', 'Avenue Hassan II, Fès, Maroc', true, NOW(), NOW())
-ON CONFLICT (email) DO NOTHING;
-
 -- Table Commandes (Yassine)
 CREATE TABLE IF NOT EXISTS schema_commandes.commandes (
     id SERIAL PRIMARY KEY,
