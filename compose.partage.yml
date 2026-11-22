@@ -1,0 +1,22 @@
+services:
+  service-fournisseurs:
+    environment:
+      DATABASE_URL: "jdbc:postgresql://${NEON_HOST}/${NEON_DB}?sslmode=require&currentSchema=schema_fournisseurs"
+      DATABASE_USERNAME: "${NEON_USER}"
+      DATABASE_PASSWORD: "${NEON_PASSWORD}"
+
+  service-commandes:
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://${NEON_HOST}/${NEON_DB}?sslmode=require&currentSchema=schema_commandes"
+      SPRING_DATASOURCE_USERNAME: "${NEON_USER}"
+      SPRING_DATASOURCE_PASSWORD: "${NEON_PASSWORD}"
+
+  service-receptions:
+    environment:
+      DB_URL: "jdbc:postgresql://${NEON_HOST}/${NEON_DB}?sslmode=require&currentSchema=schema_receptions"
+      DB_USERNAME: "${NEON_USER}"
+      DB_PASSWORD: "${NEON_PASSWORD}"
+
+  service-factures:
+    environment:
+      DATABASE_URL: "${NEON_URL}"
