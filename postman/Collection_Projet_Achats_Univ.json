@@ -10,6 +10,28 @@
       "item": [
         {
           "name": "Créer un fournisseur (201 Created)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"En-tête Content-Type est application/json\", function () {",
+                  "    pm.expect(pm.response.headers.get('content-type')).to.include('application/json');",
+                  "});",
+                  "pm.test(\"Fournisseur créé avec ID et actif = true\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.id).to.be.a('number');",
+                  "    pm.expect(data.actif).to.eql(true);",
+                  "    pm.environment.set('fournisseurId', data.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -24,7 +46,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nom\": \"Atlas Fournitures\",\n  \"email\": \"contact@atlas.example\",\n  \"telephone\": \"+212600000000\",\n  \"adresse\": \"Agadir, Maroc\"\n}"
+              "raw": "{\n  \"nom\": \"Atlas Fournitures\",\n  \"email\": \"contact_{{$timestamp}}@atlas.example\",\n  \"telephone\": \"+212600000000\",\n  \"adresse\": \"Agadir, Maroc\"\n}"
             },
             "url": {
               "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs",
@@ -40,6 +62,23 @@
         },
         {
           "name": "Lister les fournisseurs actifs (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"La réponse est un tableau de fournisseurs\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -62,6 +101,23 @@
         },
         {
           "name": "Filtrer les fournisseurs par nom et statut (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Filtrage retourne un résultat valide\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -94,6 +150,23 @@
         },
         {
           "name": "Consulter un fournisseur par ID (200 OK / 404 Not Found)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Détails du fournisseur conformes à l'ID recherché\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.id).to.eql(Number(pm.environment.get('fournisseurId')));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -117,6 +190,23 @@
         },
         {
           "name": "Mettre à jour un fournisseur (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Nom mis à jour avec succès\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.nom).to.include('Atlas');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PUT",
             "header": [
@@ -131,7 +221,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nom\": \"Atlas Fournitures Maroc\",\n  \"email\": \"contact@atlas.example\",\n  \"telephone\": \"+212528840000\",\n  \"adresse\": \"Zone Industrielle Tassila, Agadir\"\n}"
+              "raw": "{\n  \"nom\": \"Atlas Fournitures Maroc\",\n  \"email\": \"contact_{{$timestamp}}@atlas.example\",\n  \"telephone\": \"+212528840000\",\n  \"adresse\": \"Zone Industrielle Tassila, Agadir\"\n}"
             },
             "url": {
               "raw": "{{FOURNISSEURS_BASE_URL}}/api/fournisseurs/{{fournisseurId}}",
@@ -148,6 +238,23 @@
         },
         {
           "name": "Désactiver logiquement un fournisseur - PATCH (200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Fournisseur désactivé (actif = false)\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.actif).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "PATCH",
             "header": [
@@ -172,6 +279,19 @@
         },
         {
           "name": "Désactiver logiquement un fournisseur - DELETE contrat (204 No Content)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "DELETE",
             "header": [
@@ -195,6 +315,19 @@
         },
         {
           "name": "Historique des commandes d'un fournisseur via Commandes (200 OK / 503)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Réponse cohérente (200 OK ou 503 si service aval injoignable)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 503]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
@@ -219,6 +352,23 @@
         },
         {
           "name": "Santé du service (Actuator Health)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Service Fournisseurs est UP\", function () {",
+                  "    var data = pm.response.json();",
+                  "    pm.expect(data.status).to.eql('UP');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [
