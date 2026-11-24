@@ -76,6 +76,34 @@ export async function findByCommandeId(commandeId: number): Promise<Facture | nu
   return records[0] ? mapRecordToFacture(records[0]) : null;
 }
 
+export async function findByReceptionId(receptionId: number): Promise<Facture | null> {
+  const records = await db
+    .select()
+    .from(factures)
+    .where(
+      and(
+        eq(factures.receptionId, receptionId),
+        ne(factures.statutPaiement, 'ANNULEE')
+      )
+    );
+
+  return records[0] ? mapRecordToFacture(records[0]) : null;
+}
+
+export async function findAllByCommandeId(commandeId: number): Promise<Facture[]> {
+  const records = await db
+    .select()
+    .from(factures)
+    .where(
+      and(
+        eq(factures.commandeId, commandeId),
+        ne(factures.statutPaiement, 'ANNULEE')
+      )
+    );
+
+  return records.map(mapRecordToFacture);
+}
+
 
 export async function generateNumeroFacture(): Promise<string> {
   try {
@@ -174,6 +202,8 @@ export default {
   findAll,
   findById,
   findByCommandeId,
+  findByReceptionId,
+  findAllByCommandeId,
   generateNumeroFacture,
   create,
   update,

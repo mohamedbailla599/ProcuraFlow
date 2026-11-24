@@ -43,6 +43,15 @@ export type FactureSortOption =
   | 'id_desc';
 export type FactureViewMode = 'table' | 'cards';
 
+export interface DossierReceptionItem {
+  id: number;
+  statutReception: string;
+  dateReception: string;
+  nbUnites: number;
+  montantEstime?: number;
+  isAlreadyInvoiced?: boolean;
+}
+
 export interface DossierFacturable {
   commandeId: number;
   fournisseurId: number;
@@ -50,11 +59,6 @@ export interface DossierFacturable {
   montantTotal: number;
   statutCommande: string;
   dateCommande?: string;
-  receptions: {
-    id: number;
-    statutReception: string;
-    dateReception: string;
-    nbUnites: number;
-  }[];
+  receptions: DossierReceptionItem[];
 }
 

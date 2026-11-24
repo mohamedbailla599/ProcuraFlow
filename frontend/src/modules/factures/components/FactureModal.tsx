@@ -15,7 +15,7 @@ import {
   Info,
   Layers,
 } from 'lucide-react';
-import { Facture, FactureFormData, StatutPaiement, DossierFacturable } from '../types';
+import { Facture, FactureFormData, StatutPaiement, DossierFacturable, DossierReceptionItem } from '../types';
 import { getAllCommandes } from '../../commandes/api';
 import { getAll as getAllReceptions } from '../../receptions/api';
 import { fournisseurApi } from '../../fournisseurs/api/fournisseurApi';
@@ -53,6 +53,8 @@ export const FactureModal: React.FC<FactureModalProps> = ({
 
   // Mode: Guided auto-matching vs Manual override
   const [isManualMode, setIsManualMode] = useState<boolean>(false);
+  // Mode Facturation: Globale (toutes les réceptions) vs Partielle (par tranche / réception)
+  const [facturationMode, setFacturationMode] = useState<'GLOBALE' | 'PARTIELLE'>('GLOBALE');
 
   // Cross-service data for real-time 3-way matching
   const [commandesList, setCommandesList] = useState<Commande[]>([]);
@@ -122,8 +124,45 @@ export const FactureModal: React.FC<FactureModalProps> = ({
     };
   }, [isOpen]);
 
+  // Helper to compute pro-rata amount for a reception based on line items or units
+  const computeReceptionMontant = (
+    reception: Reception,
+    commande?: Commande | null
+  ): number => {
+    if (!commande || !commande.lignesCommande || commande.lignesCommande.length === 0) {
+      return 0;
+    }
+
+    // 1. Try matching by ligneCommandeId
+    if (reception.lignes && reception.lignes.length > 0) {
+      const hasValidMatches = reception.lignes.some((lr) =>
+        commande.lignesCommande.some((lc) => lc.id && lc.id === lr.ligneCommandeId)
+      );
+      if (hasValidMatches) {
+        let sum = 0;
+        for (const lr of reception.lignes) {
+          const lc = commande.lignesCommande.find((c) => c.id === lr.ligneCommandeId);
+          if (lc && typeof lc.prixUnitaire === 'number') {
+            sum += (lr.quantiteRecue || 0) * lc.prixUnitaire;
+          }
+        }
+        if (sum > 0) return Math.round(sum * 100) / 100;
+      }
+    }
+
+    // 2. Fallback to total units pro-rata
+    const totalUnitsCmd = commande.lignesCommande.reduce((acc, l) => acc + (l.quantite || 0), 0);
+    const totalUnitsRec = reception.lignes?.reduce((acc, l) => acc + (l.quantiteRecue || 0), 0) || 0;
+
+    if (totalUnitsCmd > 0 && totalUnitsRec > 0 && commande.montantTotal) {
+      return Math.round(((totalUnitsRec / totalUnitsCmd) * commande.montantTotal) * 100) / 100;
+    }
+
+    return commande.montantTotal || 0;
+  };
+
   // Compute eligible dossiers for real-time 3-way matching
-  // Rule: Commande in VALIDEE or LIVREE, not already invoiced, with at least one CONFORME reception
+  // Rule: Commande in VALIDEE or LIVREE, has un-invoiced conform receptions
   const dossiersFacturables = useMemo<DossierFacturable[]>(() => {
     if (!commandesList.length) return [];
 
@@ -134,14 +173,15 @@ export const FactureModal: React.FC<FactureModalProps> = ({
         const isStatutEligible = st === 'VALIDEE' || st === 'LIVREE';
         if (!isStatutEligible) return false;
 
-        // Prevent duplicate invoice for the same order (unless it's the one we are currently editing or deep-linking)
-        const alreadyInvoiced = existingFactures.some(
+        // Check if an existing global invoice already paid 100% of this commande
+        const isFullyInvoicedGlobally = existingFactures.some(
           (f) =>
             Number(f.commande_id) === Number(cmd.id) &&
             f.statut_paiement !== 'ANNULEE' &&
-            (!factureToEdit || f.id !== factureToEdit.id)
+            (!factureToEdit || f.id !== factureToEdit.id) &&
+            Math.abs(Number(f.montant_facture) - Number(cmd.montantTotal)) < 1
         );
-        if (alreadyInvoiced && Number(cmd.id) !== Number(initialCommandeId)) {
+        if (isFullyInvoicedGlobally && Number(cmd.id) !== Number(initialCommandeId)) {
           return false;
         }
 
@@ -149,22 +189,31 @@ export const FactureModal: React.FC<FactureModalProps> = ({
       })
       .map((cmd) => {
         // Find matching CONFORME receptions
-        const conformReceptions = receptionsList
-          .filter(
-            (r) =>
-              Number(r.commandeId) === Number(cmd.id) &&
-              (r.statutReception || 'CONFORME').toUpperCase() === 'CONFORME'
-          )
-          .map((r) => {
-            const nbUnites =
-              r.lignes?.reduce((sum, l) => sum + (l.quantiteRecue || 0), 0) || 0;
-            return {
-              id: r.id,
-              statutReception: r.statutReception || 'CONFORME',
-              dateReception: r.dateReception || '',
-              nbUnites,
-            };
-          });
+        const conformReceptionsRaw = receptionsList.filter(
+          (r) =>
+            Number(r.commandeId) === Number(cmd.id) &&
+            (r.statutReception || 'CONFORME').toUpperCase() === 'CONFORME'
+        );
+
+        const conformReceptions: DossierReceptionItem[] = conformReceptionsRaw.map((r) => {
+          const nbUnites =
+            r.lignes?.reduce((sum, l) => sum + (l.quantiteRecue || 0), 0) || 0;
+          const montantEstime = computeReceptionMontant(r, cmd);
+          const isInvoiced = existingFactures.some(
+            (f) =>
+              Number(f.reception_id) === Number(r.id) &&
+              f.statut_paiement !== 'ANNULEE' &&
+              (!factureToEdit || f.id !== factureToEdit.id)
+          );
+          return {
+            id: r.id,
+            statutReception: r.statutReception || 'CONFORME',
+            dateReception: r.dateReception || '',
+            nbUnites,
+            montantEstime,
+            isAlreadyInvoiced: isInvoiced,
+          };
+        });
 
         const fournisseurNom =
           fournisseursMap[cmd.fournisseurId] || `Fournisseur #${cmd.fournisseurId}`;
@@ -179,7 +228,15 @@ export const FactureModal: React.FC<FactureModalProps> = ({
           receptions: conformReceptions,
         };
       })
-      .filter((dossier) => dossier.receptions.length > 0); // Must have at least 1 conform reception
+      .filter((dossier) => {
+        if (dossier.receptions.length === 0) return false;
+        // If all receptions are already invoiced, exclude unless it's initialCommandeId
+        const allInvoiced = dossier.receptions.every((r) => r.isAlreadyInvoiced);
+        if (allInvoiced && Number(dossier.commandeId) !== Number(initialCommandeId)) {
+          return false;
+        }
+        return true;
+      });
   }, [commandesList, receptionsList, fournisseursMap, existingFactures, factureToEdit, initialCommandeId]);
 
   // Selected dossier based on commandeId
@@ -206,12 +263,64 @@ export const FactureModal: React.FC<FactureModalProps> = ({
     const dossier = dossiersFacturables.find((d) => d.commandeId === Number(cmdIdStr));
     if (dossier) {
       setCommandeId(String(dossier.commandeId));
-      // Auto-select first conform reception
-      const defaultRec = dossier.receptions[0];
-      setReceptionId(defaultRec ? String(defaultRec.id) : '');
-      // Auto-populate amount from PO
-      setMontantFacture(dossier.montantTotal.toFixed(2));
+      const hasMultiple = dossier.receptions.length > 1;
+      const anyInvoiced = dossier.receptions.some((r) => r.isAlreadyInvoiced);
+
+      if (hasMultiple && !anyInvoiced) {
+        setFacturationMode('GLOBALE');
+        // Set receptionId to the latest conform reception ID for complete closing reference
+        const lastRec = dossier.receptions[dossier.receptions.length - 1];
+        setReceptionId(String(lastRec.id));
+        setMontantFacture(dossier.montantTotal.toFixed(2));
+      } else if (hasMultiple && anyInvoiced) {
+        setFacturationMode('PARTIELLE');
+        const firstAvailable =
+          dossier.receptions.find((r) => !r.isAlreadyInvoiced) || dossier.receptions[0];
+        setReceptionId(String(firstAvailable.id));
+        setMontantFacture((firstAvailable.montantEstime || 0).toFixed(2));
+      } else {
+        setFacturationMode('PARTIELLE');
+        const defaultRec = dossier.receptions[0];
+        setReceptionId(defaultRec ? String(defaultRec.id) : '');
+        setMontantFacture(dossier.montantTotal.toFixed(2));
+      }
       setErrorMessage(null);
+    }
+  };
+
+  // Switch between Globale and Partielle modes
+  const handleModeChange = (mode: 'GLOBALE' | 'PARTIELLE') => {
+    setFacturationMode(mode);
+    if (!selectedDossier) return;
+
+    if (mode === 'GLOBALE') {
+      const lastRec = selectedDossier.receptions[selectedDossier.receptions.length - 1];
+      setReceptionId(String(lastRec.id));
+      setMontantFacture(selectedDossier.montantTotal.toFixed(2));
+    } else {
+      const availableRec =
+        selectedDossier.receptions.find((r) => String(r.id) === receptionId && !r.isAlreadyInvoiced) ||
+        selectedDossier.receptions.find((r) => !r.isAlreadyInvoiced) ||
+        selectedDossier.receptions[0];
+
+      if (availableRec) {
+        setReceptionId(String(availableRec.id));
+        const montant =
+          availableRec.montantEstime ??
+          selectedDossier.montantTotal / selectedDossier.receptions.length;
+        setMontantFacture(montant.toFixed(2));
+      }
+    }
+  };
+
+  // Switch specific reception in Partielle mode
+  const handleReceptionChange = (recIdStr: string) => {
+    setReceptionId(recIdStr);
+    if (selectedDossier && facturationMode === 'PARTIELLE') {
+      const rec = selectedDossier.receptions.find((r) => String(r.id) === recIdStr);
+      if (rec && typeof rec.montantEstime === 'number') {
+        setMontantFacture(rec.montantEstime.toFixed(2));
+      }
     }
   };
 
@@ -236,6 +345,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
       setStatutPaiement('NON_PAYEE');
       setNumeroFacture('');
       setIsManualMode(false);
+      setFacturationMode('GLOBALE');
     }
     setErrorMessage(null);
   }, [factureToEdit, initialCommandeId, isOpen]);
@@ -243,14 +353,7 @@ export const FactureModal: React.FC<FactureModalProps> = ({
   // Auto-fill when initialCommandeId matches a loaded dossier
   useEffect(() => {
     if (!factureToEdit && initialCommandeId && dossiersFacturables.length > 0) {
-      const target = dossiersFacturables.find((d) => d.commandeId === Number(initialCommandeId));
-      if (target) {
-        setCommandeId(String(target.commandeId));
-        if (target.receptions[0]) {
-          setReceptionId(String(target.receptions[0].id));
-        }
-        setMontantFacture(target.montantTotal.toFixed(2));
-      }
+      handleSelectDossier(String(initialCommandeId));
     }
   }, [initialCommandeId, dossiersFacturables, factureToEdit]);
 
@@ -426,8 +529,111 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Sélecteur de Réception si la commande en compte plusieurs */}
+                      {/* Sélecteur d'Option de Facturation (Quand la commande compte plusieurs réceptions) */}
                       {selectedDossier && selectedDossier.receptions.length > 1 && (
+                        <div className="space-y-2 animate-fade-in pt-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                              Option de facturation multi-réceptions
+                            </label>
+                            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                              {selectedDossier.receptions.length} livraisons conformes
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* Option 1: Globale */}
+                            <button
+                              type="button"
+                              disabled={selectedDossier.receptions.some((r) => r.isAlreadyInvoiced)}
+                              onClick={() => handleModeChange('GLOBALE')}
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                facturationMode === 'GLOBALE'
+                                  ? 'border-teal-500 bg-teal-50/70 dark:bg-teal-950/40 text-teal-950 dark:text-teal-100 ring-2 ring-teal-500/20 shadow-xs'
+                                  : selectedDossier.receptions.some((r) => r.isAlreadyInvoiced)
+                                  ? 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50 opacity-50 cursor-not-allowed'
+                                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold flex items-center gap-1.5">
+                                  <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                  Facturation Globale
+                                </span>
+                                {facturationMode === 'GLOBALE' && (
+                                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                                Facturer <strong>toutes les réceptions</strong> ensemble (solde 100% du BC : {formatMAD(selectedDossier.montantTotal)})
+                              </p>
+                              {selectedDossier.receptions.some((r) => r.isAlreadyInvoiced) && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1 block">
+                                  Indisponible (tranche déjà facturée)
+                                </span>
+                              )}
+                            </button>
+
+                            {/* Option 2: Partielle */}
+                            <button
+                              type="button"
+                              onClick={() => handleModeChange('PARTIELLE')}
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                facturationMode === 'PARTIELLE'
+                                  ? 'border-teal-500 bg-teal-50/70 dark:bg-teal-950/40 text-teal-950 dark:text-teal-100 ring-2 ring-teal-500/20 shadow-xs'
+                                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold flex items-center gap-1.5">
+                                  <SlidersHorizontal className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                                  Facturation Partielle
+                                </span>
+                                {facturationMode === 'PARTIELLE' && (
+                                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                                Facturer <strong>une seule réception</strong> au prorata des articles reçus
+                              </p>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Affichage des réceptions groupées en mode Global */}
+                      {selectedDossier && selectedDossier.receptions.length > 1 && facturationMode === 'GLOBALE' && (
+                        <div className="p-3 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-900/50 space-y-2 animate-fade-in">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-teal-900 dark:text-teal-200 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                              {selectedDossier.receptions.length} réceptions groupées sur cette facture :
+                            </span>
+                            <span className="font-bold font-mono text-teal-700 dark:text-teal-300">
+                              Total : {formatMAD(selectedDossier.montantTotal)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedDossier.receptions.map((r) => (
+                              <span
+                                key={r.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono shadow-2xs"
+                              >
+                                <PackageCheck className="w-3 h-3 text-teal-500" />
+                                <span>REC #{r.id}</span>
+                                <span className="text-slate-400">•</span>
+                                <span>{r.nbUnites} u.</span>
+                                <span className="text-slate-400">•</span>
+                                <span className="font-semibold text-teal-600 dark:text-teal-400">{formatMAD(r.montantEstime || 0)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sélecteur de Réception si mode partiel ou si 1 seule réception */}
+                      {selectedDossier && (facturationMode === 'PARTIELLE' || selectedDossier.receptions.length === 1) && (
                         <div className="animate-fade-in">
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                             Réception associée <span className="text-rose-500">*</span>
@@ -436,12 +642,17 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                             <PackageCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
                             <select
                               value={receptionId}
-                              onChange={(e) => setReceptionId(e.target.value)}
+                              onChange={(e) => handleReceptionChange(e.target.value)}
                               className="select-custom w-full h-10 pl-10 pr-9 text-xs font-semibold rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                             >
                               {selectedDossier.receptions.map((rec) => (
-                                <option key={rec.id} value={rec.id}>
-                                  Réception #{rec.id} • {rec.dateReception ? formatDate(rec.dateReception) : 'Date N/A'} • {rec.nbUnites} unité(s) conforme(s)
+                                <option
+                                  key={rec.id}
+                                  value={rec.id}
+                                  disabled={rec.isAlreadyInvoiced}
+                                >
+                                  Réception #{rec.id} • {rec.dateReception ? formatDate(rec.dateReception) : 'Date N/A'} • {rec.nbUnites} unité(s) conforme(s) • {formatMAD(rec.montantEstime || 0)}
+                                  {rec.isAlreadyInvoiced ? ' (Déjà facturée)' : ''}
                                 </option>
                               ))}
                             </select>
@@ -493,23 +704,35 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                             <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800">
                               <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
                                 <span className="flex items-center gap-1">
-                                  <PackageCheck className="w-3 h-3 text-teal-500" /> Réception
+                                  <PackageCheck className="w-3 h-3 text-teal-500" />
+                                  {facturationMode === 'GLOBALE' && selectedDossier.receptions.length > 1
+                                    ? 'Réceptions (Toutes)'
+                                    : 'Réception'}
                                 </span>
                                 <span className="font-mono text-slate-700 dark:text-slate-200">
-                                  #{receptionId || 'N/A'}
+                                  {facturationMode === 'GLOBALE' && selectedDossier.receptions.length > 1
+                                    ? selectedDossier.receptions.map((r) => `#${r.id}`).join(' & ')
+                                    : `#${receptionId || 'N/A'}`}
                                 </span>
                               </div>
                               <p className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Conforme aux spécifications
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {facturationMode === 'GLOBALE' && selectedDossier.receptions.length > 1
+                                  ? 'Toutes conformes aux spécifications'
+                                  : 'Conforme aux spécifications'}
                               </p>
                               <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
                                 <span>
-                                  {currentReception?.dateReception
+                                  {facturationMode === 'GLOBALE' && selectedDossier.receptions.length > 1
+                                    ? `${selectedDossier.receptions.length} livraisons`
+                                    : currentReception?.dateReception
                                     ? formatDate(currentReception.dateReception)
                                     : 'Réceptionnée'}
                                 </span>
                                 <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  {currentReception?.nbUnites ?? 0} unité(s)
+                                  {facturationMode === 'GLOBALE' && selectedDossier.receptions.length > 1
+                                    ? `${selectedDossier.receptions.reduce((sum, r) => sum + r.nbUnites, 0)} unité(s) au total`
+                                    : `${currentReception?.nbUnites ?? 0} unité(s)`}
                                 </span>
                               </div>
                             </div>
@@ -518,14 +741,26 @@ export const FactureModal: React.FC<FactureModalProps> = ({
                           {/* Cohérence financière */}
                           <div className="flex items-center justify-between pt-1 px-1 text-[11px] border-t border-teal-100 dark:border-teal-900/40">
                             <span className="text-slate-500 dark:text-slate-400">Cohérence financière :</span>
-                            {Math.abs(Number(montantFacture) - selectedDossier.montantTotal) < 0.01 ? (
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Montant 100% aligné sur le BC
-                              </span>
+                            {facturationMode === 'GLOBALE' || selectedDossier.receptions.length === 1 ? (
+                              Math.abs(Number(montantFacture) - selectedDossier.montantTotal) < 0.01 ? (
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Facture globale soldant 100% du BC ({formatMAD(selectedDossier.montantTotal)})
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5" /> Ajustement manuel ({formatMAD(Number(montantFacture) || 0)} vs {formatMAD(selectedDossier.montantTotal)})
+                                </span>
+                              )
                             ) : (
-                              <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                <AlertCircle className="w-3.5 h-3.5" /> Ajustement manuel ({formatMAD(Number(montantFacture) || 0)} vs {formatMAD(selectedDossier.montantTotal)})
-                              </span>
+                              Math.abs(Number(montantFacture) - (currentReception?.montantEstime || 0)) < 0.01 ? (
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Facture partielle au prorata ({formatMAD(Number(montantFacture) || 0)} sur {formatMAD(selectedDossier.montantTotal)})
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5" /> Ajustement partiel ({formatMAD(Number(montantFacture) || 0)} vs estimé {formatMAD(currentReception?.montantEstime || 0)})
+                                </span>
+                              )
                             )}
                           </div>
                         </div>

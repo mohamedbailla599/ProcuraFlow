@@ -37,9 +37,19 @@ export async function createFacture(data: CreateFactureDTO): Promise<Facture> {
   // 2. Vérifier la réception auprès du microservice Réceptions
   await receptionClient.verifierReception(data.reception_id, data.commande_id);
 
-  // 3. Vérifier les doublons (une seule facture active par commande)
+  // 3. Vérifier les doublons
+  // A. Une réception spécifique ne peut pas être facturée deux fois
+  const existanteReception = await factureRepository.findByReceptionId(data.reception_id);
+  if (existanteReception) {
+    throw ApiError.conflict(
+      `Une facture active existe déjà pour la réception #${data.reception_id} (Commande #${data.commande_id}) : ` +
+        `${existanteReception.numero_facture} (ID: ${existanteReception.id})`
+    );
+  }
+
+  // B. Une même commande ne peut pas avoir deux fois la même réception facturée
   const existante = await factureRepository.findByCommandeId(data.commande_id);
-  if (existante) {
+  if (existante && (!existante.reception_id || Number(existante.reception_id) === Number(data.reception_id))) {
     throw ApiError.conflict(
       `Une facture active existe déjà pour la commande ${data.commande_id} : ` +
         `${existante.numero_facture} (ID: ${existante.id})`
