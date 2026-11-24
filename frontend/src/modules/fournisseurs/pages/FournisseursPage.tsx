@@ -25,7 +25,8 @@ import { CommandesDrawer } from '../components/CommandesDrawer';
 import { ImportModal } from '../components/ImportModal';
 import { Toast, ToastMessage } from '../../../components/Toast';
 import { MOROCCO_CITY_NAMES } from '../../../data/moroccoCities';
-import { FilterParams, Fournisseur, FournisseurRequest, FournisseurStats } from '../types/fournisseur';
+import { FilterParams, Fournisseur, FournisseurRequest, FournisseurStats, CommandeSummary } from '../types/fournisseur';
+import { getAllCommandes } from '../../commandes/api';
 import { computeSupplierRating, saveSupplierRating } from '../utils/scoring';
 import { computeOrderStats, SupplierOrderStats, formatMAD } from '../utils/orderStats';
 import { exportCataloguePDF } from '../utils/pdfExport';
@@ -319,6 +320,44 @@ export const FournisseursPage = () => {
 
     return () => controller.abort();
   }, [demoMode, mockStore, statsTick]);
+
+  // Preload global orders statistics for all suppliers from service-commandes or demo store
+  useEffect(() => {
+    if (demoMode) {
+      const demoStatsMap: Record<number, SupplierOrderStats> = {};
+      mockStore.forEach((f) => {
+        demoStatsMap[f.id] = computeOrderStats(MOCK_COMMANDES[f.id] || []);
+        fetchedOrderStatsIdsRef.current.add(f.id);
+      });
+      setOrderStats(demoStatsMap);
+      return;
+    }
+
+    let isMounted = true;
+    getAllCommandes()
+      .then((allCmds) => {
+        if (!isMounted || !Array.isArray(allCmds)) return;
+        const grouped: Record<number, CommandeSummary[]> = {};
+        allCmds.forEach((cmd) => {
+          if (!grouped[cmd.fournisseurId]) grouped[cmd.fournisseurId] = [];
+          grouped[cmd.fournisseurId].push(cmd);
+        });
+        const statsMap: Record<number, SupplierOrderStats> = {};
+        for (const [fId, cmds] of Object.entries(grouped)) {
+          const numId = Number(fId);
+          statsMap[numId] = computeOrderStats(cmds);
+          fetchedOrderStatsIdsRef.current.add(numId);
+        }
+        setOrderStats((prev) => ({ ...prev, ...statsMap }));
+      })
+      .catch((err) => {
+        console.warn('Préchargement des commandes ignoré (service Commandes indisponible):', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [demoMode, mockStore, refreshTick]);
 
   // Fetch paginated suppliers (server-side or demo store) and trigger progressive entrance after arrival
   useEffect(() => {
@@ -735,25 +774,99 @@ export const FournisseursPage = () => {
     mapFournisseurs,
   ]);
 
+  const resolveOrderStatsForSuppliers = useCallback(
+    async (suppliers: Fournisseur[]): Promise<Record<number, SupplierOrderStats>> => {
+      if (demoMode) {
+        const statsMap: Record<number, SupplierOrderStats> = {};
+        suppliers.forEach((f) => {
+          statsMap[f.id] = computeOrderStats(MOCK_COMMANDES[f.id] || []);
+          fetchedOrderStatsIdsRef.current.add(f.id);
+        });
+        return statsMap;
+      }
+
+      try {
+        const allCmds = await getAllCommandes();
+        const grouped: Record<number, CommandeSummary[]> = {};
+        if (Array.isArray(allCmds)) {
+          for (const cmd of allCmds) {
+            if (!grouped[cmd.fournisseurId]) grouped[cmd.fournisseurId] = [];
+            grouped[cmd.fournisseurId].push(cmd);
+          }
+        }
+        const statsMap: Record<number, SupplierOrderStats> = {};
+        for (const f of suppliers) {
+          statsMap[f.id] = computeOrderStats(grouped[f.id] || []);
+          fetchedOrderStatsIdsRef.current.add(f.id);
+        }
+        setOrderStats((prev) => ({ ...prev, ...statsMap }));
+        return statsMap;
+      } catch (err) {
+        console.warn('Impossible de charger toutes les commandes pour l’export, repli sur le cache local:', err);
+        const fallbackStats: Record<number, SupplierOrderStats> = { ...orderStats };
+        const missing = suppliers.filter((f) => !fallbackStats[f.id]);
+        if (missing.length > 0 && missing.length <= 30) {
+          await Promise.allSettled(
+            missing.map(async (f) => {
+              try {
+                const cmds = await fournisseurApi.getCommandes(f.id);
+                fallbackStats[f.id] = computeOrderStats(cmds);
+                fetchedOrderStatsIdsRef.current.add(f.id);
+              } catch {
+                fallbackStats[f.id] = computeOrderStats([]);
+              }
+            })
+          );
+          setOrderStats((prev) => ({ ...prev, ...fallbackStats }));
+        } else {
+          for (const f of missing) {
+            if (!fallbackStats[f.id]) {
+              fallbackStats[f.id] = computeOrderStats([]);
+            }
+          }
+        }
+        return fallbackStats;
+      }
+    },
+    [demoMode, orderStats]
+  );
+
   const handleExportCSV = useCallback(async () => {
     if (exporting) return;
     setExporting(true);
     try {
+      showToast('info', 'Préparation de l’export CSV en cours...');
       const list = await fetchAllMatchingForExport();
       if (list.length === 0) {
         showToast('error', 'Aucun fournisseur à exporter.');
         return;
       }
-      const headers = ['ID', 'Nom', 'Email', 'Telephone', 'Adresse', 'Statut', 'DateCreation'];
-      const rows = list.map((f) => [
-        f.id,
-        `"${f.nom.replace(/"/g, '""')}"`,
-        `"${f.email}"`,
-        `"${(f.telephone || '').replace(/"/g, '""')}"`,
-        `"${(f.adresse || '').replace(/"/g, '""')}"`,
-        f.actif ? 'Actif' : 'Inactif',
-        f.createdAt,
-      ]);
+      const resolvedStats = await resolveOrderStatsForSuppliers(list);
+      const headers = [
+        'ID',
+        'Nom',
+        'Email',
+        'Telephone',
+        'Adresse',
+        'Statut',
+        'Commandes',
+        'Total Commande (MAD)',
+        'DateCreation',
+      ];
+      const rows = list.map((f) => {
+        const stats = resolvedStats[f.id];
+        return [
+          f.id,
+          `"${f.nom.replace(/"/g, '""')}"`,
+          `"${f.email}"`,
+          `"${(f.telephone || '').replace(/"/g, '""')}"`,
+          `"${(f.adresse || '').replace(/"/g, '""')}"`,
+          f.actif ? 'Actif' : 'Inactif',
+          stats ? stats.activeOrders : 0,
+          stats ? stats.totalOrderedAmount.toFixed(2) : '0.00',
+          f.createdAt,
+        ];
+      });
       const csvBody = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
       const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
       const blobUrl = URL.createObjectURL(blob);
@@ -771,21 +884,22 @@ export const FournisseursPage = () => {
     } finally {
       setExporting(false);
     }
-  }, [exporting, fetchAllMatchingForExport, showToast]);
+  }, [exporting, fetchAllMatchingForExport, resolveOrderStatsForSuppliers, showToast]);
 
   const handleExportPDF = useCallback(async () => {
     if (exporting) return;
     setExporting(true);
     try {
-      showToast('success', 'Génération du rapport PDF en cours...');
+      showToast('info', 'Génération du rapport PDF en cours...');
       const list = await fetchAllMatchingForExport();
       if (list.length === 0) {
         showToast('error', 'Aucun fournisseur à exporter.');
         return;
       }
+      const resolvedStats = await resolveOrderStatsForSuppliers(list);
       await exportCataloguePDF({
         fournisseurs: list,
-        orderStats,
+        orderStats: resolvedStats,
         statusFilter: queryState.statusFilter,
         cityFilter: queryState.cityFilter,
         searchTerm,
@@ -800,7 +914,7 @@ export const FournisseursPage = () => {
   }, [
     exporting,
     fetchAllMatchingForExport,
-    orderStats,
+    resolveOrderStatsForSuppliers,
     queryState.statusFilter,
     queryState.cityFilter,
     searchTerm,

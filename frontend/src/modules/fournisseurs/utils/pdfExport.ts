@@ -256,12 +256,20 @@ export async function exportCataloguePDF(options: GlobalExportOptions): Promise<
       fillColor: [248, 250, 252],
     },
     didParseCell: (data: any) => {
-      if (data.section === 'body' && data.column.index === 6) {
-        if (data.cell.raw === 'Actif') {
-          data.cell.styles.textColor = [5, 150, 105];
+      if (data.section === 'body') {
+        if (data.column.index === 6) {
+          if (data.cell.raw === 'Actif') {
+            data.cell.styles.textColor = [5, 150, 105];
+            data.cell.styles.fontStyle = 'bold';
+          } else {
+            data.cell.styles.textColor = [148, 163, 184];
+          }
+        } else if (data.column.index === 7 && data.cell.raw && data.cell.raw !== '0') {
+          data.cell.styles.textColor = [13, 148, 136];
           data.cell.styles.fontStyle = 'bold';
-        } else {
-          data.cell.styles.textColor = [148, 163, 184];
+        } else if (data.column.index === 8 && data.cell.raw && data.cell.raw !== '-') {
+          data.cell.styles.textColor = [15, 23, 42];
+          data.cell.styles.fontStyle = 'bold';
         }
       }
     },
